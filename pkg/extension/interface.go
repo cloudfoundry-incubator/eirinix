@@ -3,7 +3,7 @@ package extension
 import (
 	"context"
 
-	"github.com/cloudflare/cfssl/config"
+	"code.cloudfoundry.org/cf-operator/pkg/kube/util/config"
 	"go.uber.org/zap"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 
@@ -39,10 +39,17 @@ type DefaultMutatingWebHook struct {
 	KubeHandle KubeHandler
 }
 
-type ExtensionManager interface{}
+type ExtensionManager interface {
+	AddExtension(e Extension)
+	Start(log *zap.SugaredLogger)
+	ListExtensions() []Extension
+}
 
 type DefaultExtensionManager struct {
-	Extensions []Extension
+	Extensions      []Extension
+	Namespace, Host string
+	Port            int32
+	KubeConfig      string
 }
 
 func NewWebHook() MutatingWebHook {
@@ -61,27 +68,10 @@ func (m *DefaultMutatingWebHook) InjectDecoder(d types.Decoder) error {
 	return nil
 }
 
-// NewExtensionManager returns the default ExtensionManager
-func NewExtensionManager() ExtensionManager {
-	return &DefaultExtensionManager{}
-}
-
-func (m *DefaultExtensionManager) AddExtension(e Extension) {
-	m.Extensions = append(m.Extensions, e)
-}
-
 //func (d *DefaultMutatingWebHook) Handle(log *zap.SugaredLogger, config *config.Config, manager manager.Manager, server *webhook.Server) (*admission.Webhook, error) {
 //return d.Handle(log, config, manager, server)
 //}
 
 func (d *DefaultMutatingWebHook) Handle(ctx context.Context, req types.Request) types.Response {
 	return d.KubeHandle(ctx, req)
-}
-
-func (m *DefaultExtensionManager) Start() {
-
-	for _, _ = range m.Extensions {
-		_ = NewWebHook()
-	}
-
 }
