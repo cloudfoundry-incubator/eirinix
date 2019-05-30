@@ -5,7 +5,7 @@ import (
 
 	"code.cloudfoundry.org/cf-operator/pkg/kube/util/config"
 	"go.uber.org/zap"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/client-go/rest"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -18,42 +18,26 @@ type Extension interface {
 	Handle(context.Context, types.Request) types.Response
 }
 
-type WebHookHandler func(log *zap.SugaredLogger, config *config.Config, manager manager.Manager, server *webhook.Server) (*admission.Webhook, error)
-type KubeHandler func(ctx context.Context, req types.Request) types.Response
-type WebHookOptions struct {
-	Path        string
-	MatchLabels map[string]string
-	// XXX: Rember it needs to be configurable
-	FailurePolicy admissionregistrationv1beta1.FailurePolicyType
-}
 type MutatingWebHook interface {
 	Extension
 	InjectClient(c client.Client) error
 	InjectDecoder(d types.Decoder) error
+	RegisterAdmissionWebHook(WebHookOptions) (*admission.Webhook, error)
 }
 
-type DefaultMutatingWebHook struct {
-	decoder types.Decoder
-	client  client.Client
-	//WebHookHandle WebHookHandler
-	KubeHandle KubeHandler
-}
+type WebHookHandler func(log *zap.SugaredLogger, config *config.Config, manager manager.Manager, server *webhook.Server) (*admission.Webhook, error)
+type KubeHandler func(ctx context.Context, req types.Request) types.Response
 
 type ExtensionManager interface {
 	AddExtension(e Extension)
-	Start(log *zap.SugaredLogger)
+	Start() error
 	ListExtensions() []Extension
+	Kube() (*rest.Config, error)
+	//Logger(*zap.SugaredLogger)
 }
 
-type DefaultExtensionManager struct {
-	Extensions      []Extension
-	Namespace, Host string
-	Port            int32
-	KubeConfig      string
-}
-
-func NewWebHook() MutatingWebHook {
-	return &DefaultMutatingWebHook{}
+func NewWebHook(h KubeHandler) MutatingWebHook {
+	return &DefaultMutatingWebHook{KubeHandle: h}
 }
 
 // InjectClient injects the client.

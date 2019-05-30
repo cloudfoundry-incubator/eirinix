@@ -17,10 +17,13 @@ func (e *TestExtension) Handle(context.Context, types.Request) types.Response { 
 var _ = Describe("Extension Manager", func() {
 
 	Context("Object creation", func() {
-		manager := NewExtensionManager("namespace", "127.0.0.1", 90)
+		manager := NewExtensionManager("namespace", "127.0.0.1", 90, nil)
 		It("Is an interface", func() {
-			_, ok := manager.(*DefaultExtensionManager)
+			m, ok := manager.(*DefaultExtensionManager)
 			Expect(ok).To(Equal(true))
+			Expect(m.Namespace).To(Equal("namespace"))
+			Expect(m.Host).To(Equal("127.0.0.1"))
+			Expect(m.Port).To(Equal(int32(90)))
 		})
 
 		It("Adds extensions", func() {
