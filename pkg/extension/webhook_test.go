@@ -1,32 +1,32 @@
 package extension_test
 
 import (
+	"context"
+
 	. "github.com/SUSE/eirinix/pkg/extension"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
-// type WebHookOptions struct {
-// 	Id          string // Webhook path will be generated out of that
-// 	MatchLabels map[string]string
-// 	// XXX: Rember it needs to be configurable
-// 	FailurePolicy admissionregistrationv1beta1.FailurePolicyType
-// 	Namespace     string
-// 	Manager       manager.Manager
-// 	WebHookServer *webhook.Server
-// }
-
 var _ = Describe("WebHook implementation", func() {
+	e := &TestExtension{ParentExtension{Name: "test"}}
+	w := NewWebHook(e)
 
-	Context("Object creation", func() {
-		e := &TestExtension{}
-		w := NewWebHook(e.Handle)
-		It("Is an interface", func() {
+	Context("With a fake extension", func() {
+		It("It errors without a manager", func() {
 			_, err := w.RegisterAdmissionWebHook(WebHookOptions{Id: "volume", Namespace: "eirini"})
 			Expect(err).To(Not(BeNil()))
+		})
 
-			//	a, err = w.RegisterAdmissionWebHook(WebHookOptions{Id: "volume", Namespace: "eirini", Manager: &manager.Manager{}})
-			//s		Expect(err).To(BeNil())
+		It("Delegates to the Extension the handler", func() {
+			ctx := context.Background()
+			t := types.Request{}
+			res := w.Handle(ctx, t)
+			annotations := res.Response.AuditAnnotations
+			v, ok := annotations["name"]
+			Expect(ok).To(Equal(true))
+			Expect(v).To(Equal("test"))
 		})
 	})
 })

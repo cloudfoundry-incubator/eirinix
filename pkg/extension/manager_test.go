@@ -6,13 +6,23 @@ import (
 	. "github.com/SUSE/eirinix/pkg/extension"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/api/admission/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
-// FIXME: Move to catalog
-type TestExtension struct{}
+type ParentExtension struct {
+	Name string
+}
 
-func (e *TestExtension) Handle(context.Context, types.Request) types.Response { return types.Response{} }
+// FIXME: Move to catalog
+type TestExtension struct {
+	ParentExtension
+}
+
+func (e *TestExtension) Handle(context.Context, types.Request) types.Response {
+	res := types.Response{Response: &v1beta1.AdmissionResponse{AuditAnnotations: map[string]string{"name": e.Name}}}
+	return res
+}
 
 var _ = Describe("Extension Manager", func() {
 
@@ -27,7 +37,8 @@ var _ = Describe("Extension Manager", func() {
 		})
 
 		It("Adds extensions", func() {
-			manager.AddExtension(&TestExtension{})
+			manager.AddExtension(&TestExtension{
+				ParentExtension{Name: "test"}})
 			Expect(len(manager.ListExtensions())).To(Equal(1))
 		})
 	})
