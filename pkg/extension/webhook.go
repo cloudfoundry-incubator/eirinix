@@ -25,9 +25,8 @@ type DefaultMutatingWebHook struct {
 }
 
 type WebHookOptions struct {
-	Id          string // Webhook path will be generated out of that
-	MatchLabels map[string]string
-	// XXX: Rember it needs to be configurable
+	Id            string // Webhook path will be generated out of that
+	MatchLabels   map[string]string
 	FailurePolicy admissionregistrationv1beta1.FailurePolicyType
 	Namespace     string
 	Manager       manager.Manager

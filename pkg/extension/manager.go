@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/afero"
 	"go.uber.org/zap"
 
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -20,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"k8s.io/client-go/rest"
@@ -36,6 +38,7 @@ type DefaultExtensionManager struct {
 	Context         context.Context
 	Config          *config.Config
 	WebHookConfig   *WebhookConfig
+	WebHookServer   *webhook.Server
 }
 
 // XXX: Kubernetes runtime code
@@ -134,7 +137,15 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 	for k, e := range m.Extensions {
 		w := NewWebHook(e.Handle)
 		// TODO: Fill all the options
-		admissionHook, err := w.RegisterAdmissionWebHook(WebHookOptions{Id: strconv.Itoa(k)})
+		admissionHook, err := w.RegisterAdmissionWebHook(
+			WebHookOptions{
+				Id:        strconv.Itoa(k),
+				Namespace: m.Namespace,
+				// XXX: Rember, preferably it should be configurable
+				FailurePolicy: admissionregistrationv1beta1.Fail,
+				Manager:       m.kubeManager,
+				WebHookServer: m.WebHookServer,
+			})
 		if err != nil {
 			return err
 		}
@@ -148,9 +159,9 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 	return nil
 }
 
-func (m *DefaultExtensionManager) Start() error {
-	defer m.Logger.Sync()
+func (m *DefaultExtensionManager) setup() error {
 	m.Context = ctxlog.NewManagerContext(m.Logger)
+
 	m.Config = &config.Config{
 		CtxTimeOut:        10 * time.Second,
 		Namespace:         m.Namespace,
@@ -158,11 +169,34 @@ func (m *DefaultExtensionManager) Start() error {
 		Fs:                afero.NewOsFs(),
 	}
 
-	m.WebHookConfig = NewWebhookConfig(m.kubeManager.GetClient(), m.Config, credsgen.NewInMemoryGenerator(m.Logger), "eirini-extensions-mutating-hook-"+m.Namespace)
+	m.WebHookConfig = NewWebhookConfig(
+		m.kubeManager.GetClient(),
+		m.Config,
+		credsgen.NewInMemoryGenerator(m.Logger),
+		"eirini-extensions-mutating-hook-"+m.Namespace)
+
 	kubeConn, err := m.Kube()
 	if err != nil {
 		return errors.Wrap(err, "Failed connecting to kubernetes cluster")
 	}
+
+	disableConfigInstaller := true
+	hookServer, err := webhook.NewServer("eirini-extensions", m.kubeManager, webhook.ServerOptions{
+		Port:                          m.Config.WebhookServerPort,
+		CertDir:                       m.WebHookConfig.CertDir,
+		DisableWebhookConfigInstaller: &disableConfigInstaller,
+		BootstrapOptions: &webhook.BootstrapOptions{
+			MutatingWebhookConfigName: m.WebHookConfig.ConfigName,
+			Host:                      &m.Config.WebhookServerHost,
+			// The user should probably be able to use a service instead.
+			// Service: ??
+		},
+	})
+	if err != nil {
+		return err
+	}
+	m.WebHookServer = hookServer
+
 	mgr, err := manager.New(
 		kubeConn,
 		manager.Options{
@@ -174,19 +208,28 @@ func (m *DefaultExtensionManager) Start() error {
 
 	m.kubeManager = mgr
 
+	return nil
+}
+
+func (m *DefaultExtensionManager) Start() error {
+	defer m.Logger.Sync()
+
+	if err := m.setup(); err != nil {
+		return err
+	}
+
 	// Setup Scheme for all resources
-	if err = AddToScheme(mgr.GetScheme()); err != nil {
+	if err := AddToScheme(m.kubeManager.GetScheme()); err != nil {
 		return err
 	}
 
-	err = m.RegisterExtensions()
-	if err != nil {
-		return err
-	}
-	err = m.operatorSetup()
-	if err != nil {
+	if err := m.RegisterExtensions(); err != nil {
 		return err
 	}
 
-	return mgr.Start(signals.SetupSignalHandler())
+	if err := m.operatorSetup(); err != nil {
+		return err
+	}
+
+	return m.kubeManager.Start(signals.SetupSignalHandler())
 }
