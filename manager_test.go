@@ -1,30 +1,14 @@
 package extension_test
 
 import (
-	"context"
-
 	. "github.com/SUSE/eirinix"
+	catalog "github.com/SUSE/eirinix/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/api/admission/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
-type ParentExtension struct {
-	Name string
-}
-
-// FIXME: Move to catalog
-type TestExtension struct {
-	ParentExtension
-}
-
-func (e *TestExtension) Handle(context.Context, types.Request) types.Response {
-	res := types.Response{Response: &v1beta1.AdmissionResponse{AuditAnnotations: map[string]string{"name": e.Name}}}
-	return res
-}
-
 var _ = Describe("Extension Manager", func() {
+	c := catalog.NewCatalog()
 
 	Context("Object creation", func() {
 		manager := NewExtensionManager("namespace", "127.0.0.1", 90, nil)
@@ -37,10 +21,8 @@ var _ = Describe("Extension Manager", func() {
 		})
 
 		It("Adds extensions", func() {
-			manager.AddExtension(&TestExtension{
-				ParentExtension{Name: "test"}})
+			manager.AddExtension(c.SimpleExtension())
 			Expect(len(manager.ListExtensions())).To(Equal(1))
 		})
 	})
-
 })

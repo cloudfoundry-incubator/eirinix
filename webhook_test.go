@@ -4,14 +4,16 @@ import (
 	"context"
 
 	. "github.com/SUSE/eirinix"
+	catalog "github.com/SUSE/eirinix/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
 var _ = Describe("WebHook implementation", func() {
-	e := &TestExtension{ParentExtension{Name: "test"}}
-	w := NewWebHook(e)
+
+	c := catalog.NewCatalog()
+	w := NewWebHook(c.SimpleExtension())
 
 	Context("With a fake extension", func() {
 		It("It errors without a manager", func() {
