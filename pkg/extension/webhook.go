@@ -1,6 +1,7 @@
 package extension
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -31,6 +32,10 @@ type WebHookOptions struct {
 	Namespace     string
 	Manager       manager.Manager
 	WebHookServer *webhook.Server
+}
+
+func NewWebHook(h KubeHandler) MutatingWebHook {
+	return &DefaultMutatingWebHook{KubeHandle: h}
 }
 
 func (m *DefaultMutatingWebHook) getNamespaceSelector(opts WebHookOptions) *metav1.LabelSelector {
@@ -66,4 +71,20 @@ func (m *DefaultMutatingWebHook) RegisterAdmissionWebHook(opts WebHookOptions) (
 		return nil, errors.Wrap(err, "unable to register the hook with the admission server")
 	}
 	return mutatingWebhook, nil
+}
+
+// InjectClient injects the client.
+func (m *DefaultMutatingWebHook) InjectClient(c client.Client) error {
+	m.client = c
+	return nil
+}
+
+// InjectDecoder injects the decoder.
+func (m *DefaultMutatingWebHook) InjectDecoder(d types.Decoder) error {
+	m.decoder = d
+	return nil
+}
+
+func (d *DefaultMutatingWebHook) Handle(ctx context.Context, req types.Request) types.Response {
+	return d.KubeHandle(ctx, req)
 }
