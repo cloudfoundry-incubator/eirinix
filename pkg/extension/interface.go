@@ -20,9 +20,6 @@ type MutatingWebHook interface {
 	InjectDecoder(d types.Decoder) error
 	RegisterAdmissionWebHook(WebHookOptions) (*admission.Webhook, error)
 }
-
-type KubeHandler func(ctx context.Context, req types.Request) types.Response
-
 type ExtensionManager interface {
 	AddExtension(e Extension)
 	Start() error

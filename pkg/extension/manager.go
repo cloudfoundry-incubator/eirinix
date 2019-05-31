@@ -135,7 +135,7 @@ func (m *DefaultExtensionManager) Kube() (*rest.Config, error) {
 func (m *DefaultExtensionManager) RegisterExtensions() error {
 	webhooks := []*admission.Webhook{}
 	for k, e := range m.Extensions {
-		w := NewWebHook(e.Handle)
+		w := NewWebHook(e)
 		// TODO: Fill all the options
 		admissionHook, err := w.RegisterAdmissionWebHook(
 			WebHookOptions{

@@ -21,7 +21,7 @@ type DefaultMutatingWebHook struct {
 	decoder types.Decoder
 	client  client.Client
 	//WebHookHandle WebHookHandler
-	KubeHandle KubeHandler
+	EiriniExtension Extension
 }
 
 type WebHookOptions struct {
@@ -33,8 +33,8 @@ type WebHookOptions struct {
 	WebHookServer *webhook.Server
 }
 
-func NewWebHook(h KubeHandler) MutatingWebHook {
-	return &DefaultMutatingWebHook{KubeHandle: h}
+func NewWebHook(e Extension) MutatingWebHook {
+	return &DefaultMutatingWebHook{EiriniExtension: e}
 }
 
 func (m *DefaultMutatingWebHook) getNamespaceSelector(opts WebHookOptions) *metav1.LabelSelector {
@@ -85,5 +85,5 @@ func (m *DefaultMutatingWebHook) InjectDecoder(d types.Decoder) error {
 }
 
 func (d *DefaultMutatingWebHook) Handle(ctx context.Context, req types.Request) types.Response {
-	return d.KubeHandle(ctx, req)
+	return d.EiriniExtension.Handle(ctx, req)
 }
