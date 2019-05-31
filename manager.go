@@ -172,16 +172,21 @@ func (m *DefaultExtensionManager) setup() error {
 		Fs:                afero.NewOsFs(),
 	}
 
-	m.WebHookConfig = NewWebhookConfig(
-		m.kubeManager.GetClient(),
-		m.Config,
-		credsgen.NewInMemoryGenerator(m.Logger),
-		"eirini-extensions-mutating-hook-"+m.Namespace)
-
 	kubeConn, err := m.KubeConnection()
 	if err != nil {
 		return errors.Wrap(err, "Failed connecting to kubernetes cluster")
 	}
+
+	mgr, err := manager.New(
+		kubeConn,
+		manager.Options{
+			Namespace: m.Namespace,
+		})
+	if err != nil {
+		return err
+	}
+
+	m.kubeManager = mgr
 
 	disableConfigInstaller := true
 	hookServer, err := webhook.NewServer("eirini-extensions", m.kubeManager, webhook.ServerOptions{
@@ -199,18 +204,11 @@ func (m *DefaultExtensionManager) setup() error {
 		return err
 	}
 	m.WebHookServer = hookServer
-
-	mgr, err := manager.New(
-		kubeConn,
-		manager.Options{
-			Namespace: m.Namespace,
-		})
-	if err != nil {
-		return err
-	}
-
-	m.kubeManager = mgr
-
+	m.WebHookConfig = NewWebhookConfig(
+		m.kubeManager.GetClient(),
+		m.Config,
+		credsgen.NewInMemoryGenerator(m.Logger),
+		"eirini-extensions-mutating-hook-"+m.Namespace)
 	return nil
 }
 
