@@ -49,8 +49,6 @@ func (m *DefaultMutatingWebHook) getNamespaceSelector(opts WebHookOptions) *meta
 }
 
 func (m *DefaultMutatingWebHook) RegisterAdmissionWebHook(opts WebHookOptions) (*admission.Webhook, error) {
-	//	mutatingWebhook := builder.NewWebhookBuilder()
-
 	mutatingWebhook, err := builder.NewWebhookBuilder().
 		Path(fmt.Sprintf("/%s", opts.Id)).
 		Mutating().
@@ -58,13 +56,12 @@ func (m *DefaultMutatingWebHook) RegisterAdmissionWebHook(opts WebHookOptions) (
 		ForType(&corev1.Pod{}).
 		Handlers(m).
 		WithManager(opts.Manager).
-		FailurePolicy(admissionregistrationv1beta1.Fail).
+		FailurePolicy(opts.FailurePolicy).
 		Build()
 
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't build a new webhook")
 	}
-	// XXX: in opts?
 	err = opts.WebHookServer.Register(mutatingWebhook)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to register the hook with the admission server")
