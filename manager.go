@@ -8,7 +8,7 @@ import (
 	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen/in_memory_generator"
 	kubeConfig "code.cloudfoundry.org/cf-operator/pkg/kube/config"
 	"code.cloudfoundry.org/cf-operator/pkg/kube/util/config"
-	"github.com/SUSE/eirinix/pkg/util/ctxlog"
+	"github.com/SUSE/eirinix/util/ctxlog"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
 	"go.uber.org/zap"
@@ -123,12 +123,10 @@ func setOperatorNamespaceLabel(ctx context.Context, config *config.Config, c cli
 
 func (m *DefaultExtensionManager) Kube() (*rest.Config, error) {
 	if m.KubeConnection == nil {
-
 		if err := m.kubeSetup(); err != nil {
 			return nil, err
 		}
 	}
-
 	return m.KubeConnection, nil
 }
 
@@ -136,7 +134,6 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 	webhooks := []*admission.Webhook{}
 	for k, e := range m.Extensions {
 		w := NewWebHook(e)
-		// TODO: Fill all the options
 		admissionHook, err := w.RegisterAdmissionWebHook(
 			WebHookOptions{
 				Id:        strconv.Itoa(k),

@@ -3,7 +3,7 @@ package extension_test
 import (
 	"context"
 
-	. "github.com/SUSE/eirinix/pkg/extension"
+	. "github.com/SUSE/eirinix"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"

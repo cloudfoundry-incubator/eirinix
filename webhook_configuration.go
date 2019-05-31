@@ -22,7 +22,7 @@ import (
 
 	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
 	"code.cloudfoundry.org/cf-operator/pkg/kube/util/config"
-	"github.com/SUSE/eirini-extensions/pkg/util/ctxlog"
+	"github.com/SUSE/eirinix/util/ctxlog"
 )
 
 // WebhookConfig generates certificates and the configuration for the webhook server

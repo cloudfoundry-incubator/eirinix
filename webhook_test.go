@@ -3,7 +3,7 @@ package extension_test
 import (
 	"context"
 
-	. "github.com/SUSE/eirinix/pkg/extension"
+	. "github.com/SUSE/eirinix"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
