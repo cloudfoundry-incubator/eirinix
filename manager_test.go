@@ -11,7 +11,7 @@ var _ = Describe("Extension Manager", func() {
 	c := catalog.NewCatalog()
 
 	Context("Object creation", func() {
-		manager := NewExtensionManager("namespace", "127.0.0.1", 90, nil)
+		manager := NewManager("namespace", "127.0.0.1", 90, "", nil)
 		It("Is an interface", func() {
 			m, ok := manager.(*DefaultExtensionManager)
 			Expect(ok).To(Equal(true))

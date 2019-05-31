@@ -7,6 +7,7 @@ import (
 	"context"
 
 	operator_testing "code.cloudfoundry.org/cf-operator/testing"
+	eirinix "github.com/SUSE/eirinix"
 )
 
 // NewCatalog returns a Catalog, our helper for test cases
@@ -22,3 +23,10 @@ func NewContext() context.Context {
 
 // Catalog provides several instances for test, based on the cf-operator's catalog
 type Catalog struct{ *operator_testing.Catalog }
+
+// SimpleExtension it's returning a fake dummy Eirini extension
+func (c *Catalog) SimpleExtension() eirinix.Extension {
+
+	return &testExtension{
+		parentExtension{Name: "test"}}
+}

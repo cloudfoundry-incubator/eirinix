@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
+// DefaultMutatingWebHook is the implementation of the WebHook generated out of the Eirini Extension
 type DefaultMutatingWebHook struct {
 	decoder types.Decoder
 	client  client.Client
@@ -24,8 +25,9 @@ type DefaultMutatingWebHook struct {
 	EiriniExtension Extension
 }
 
+// WebHookOptions are the options required to register a WebHook to the WebHook server
 type WebHookOptions struct {
-	Id            string // Webhook path will be generated out of that
+	ID            string // Webhook path will be generated out of that
 	MatchLabels   map[string]string
 	FailurePolicy admissionregistrationv1beta1.FailurePolicyType
 	Namespace     string
@@ -33,11 +35,12 @@ type WebHookOptions struct {
 	WebHookServer *webhook.Server
 }
 
+// NewWebHook returns a MutatingWebHook out of an Eirini Extension
 func NewWebHook(e Extension) MutatingWebHook {
 	return &DefaultMutatingWebHook{EiriniExtension: e}
 }
 
-func (m *DefaultMutatingWebHook) getNamespaceSelector(opts WebHookOptions) *metav1.LabelSelector {
+func (w *DefaultMutatingWebHook) getNamespaceSelector(opts WebHookOptions) *metav1.LabelSelector {
 	if len(opts.MatchLabels) == 0 {
 		return &metav1.LabelSelector{
 			MatchLabels: map[string]string{
@@ -48,13 +51,14 @@ func (m *DefaultMutatingWebHook) getNamespaceSelector(opts WebHookOptions) *meta
 	return &metav1.LabelSelector{MatchLabels: opts.MatchLabels}
 }
 
-func (m *DefaultMutatingWebHook) RegisterAdmissionWebHook(opts WebHookOptions) (*admission.Webhook, error) {
+// RegisterAdmissionWebHook registers the Mutating WebHook to the WebHook Server and returns the generated Admission Webhook
+func (w *DefaultMutatingWebHook) RegisterAdmissionWebHook(opts WebHookOptions) (*admission.Webhook, error) {
 	mutatingWebhook, err := builder.NewWebhookBuilder().
-		Path(fmt.Sprintf("/%s", opts.Id)).
+		Path(fmt.Sprintf("/%s", opts.ID)).
 		Mutating().
-		NamespaceSelector(m.getNamespaceSelector(opts)).
+		NamespaceSelector(w.getNamespaceSelector(opts)).
 		ForType(&corev1.Pod{}).
-		Handlers(m).
+		Handlers(w).
 		WithManager(opts.Manager).
 		FailurePolicy(opts.FailurePolicy).
 		Build()
@@ -70,17 +74,18 @@ func (m *DefaultMutatingWebHook) RegisterAdmissionWebHook(opts WebHookOptions) (
 }
 
 // InjectClient injects the client.
-func (m *DefaultMutatingWebHook) InjectClient(c client.Client) error {
-	m.client = c
+func (w *DefaultMutatingWebHook) InjectClient(c client.Client) error {
+	w.client = c
 	return nil
 }
 
 // InjectDecoder injects the decoder.
-func (m *DefaultMutatingWebHook) InjectDecoder(d types.Decoder) error {
-	m.decoder = d
+func (w *DefaultMutatingWebHook) InjectDecoder(d types.Decoder) error {
+	w.decoder = d
 	return nil
 }
 
-func (d *DefaultMutatingWebHook) Handle(ctx context.Context, req types.Request) types.Response {
-	return d.EiriniExtension.Handle(ctx, req)
+// Handle delegates the Handle function to the Eirini Extension
+func (w *DefaultMutatingWebHook) Handle(ctx context.Context, req types.Request) types.Response {
+	return w.EiriniExtension.Handle(ctx, req)
 }

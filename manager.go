@@ -27,12 +27,13 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+// DefaultExtensionManager represent an implementation of Manager
 type DefaultExtensionManager struct {
 	Extensions      []Extension
 	Namespace, Host string
 	Port            int32
 	KubeConfig      string
-	KubeConnection  *rest.Config
+	kubeConnection  *rest.Config
 	kubeManager     manager.Manager
 	Logger          *zap.SugaredLogger
 	Context         context.Context
@@ -41,7 +42,6 @@ type DefaultExtensionManager struct {
 	WebHookServer   *webhook.Server
 }
 
-// XXX: Kubernetes runtime code
 var addToSchemes = runtime.SchemeBuilder{}
 
 // AddToScheme adds all Resources to the Scheme
@@ -49,17 +49,21 @@ func AddToScheme(s *runtime.Scheme) error {
 	return addToSchemes.AddToScheme(s)
 }
 
-func NewExtensionManager(namespace, host string, port int32, logger *zap.SugaredLogger) ExtensionManager {
+// NewManager returns a manager for the kubernetes cluster.
+// the kubeconfig file and the logger are optional
+func NewManager(namespace, host string, port int32, kubeConfigfile string, logger *zap.SugaredLogger) Manager {
 	if logger == nil {
 		logger = &zap.SugaredLogger{}
 	}
-	return &DefaultExtensionManager{Namespace: namespace, Host: host, Port: port, Logger: logger}
+	return &DefaultExtensionManager{Namespace: namespace, Host: host, Port: port, KubeConfig: kubeConfigfile, Logger: logger}
 }
 
+// AddExtension adds an Erini extension to the manager
 func (m *DefaultExtensionManager) AddExtension(e Extension) {
 	m.Extensions = append(m.Extensions, e)
 }
 
+// ListExtensions returns the list of the Extensions added to the Manager
 func (m *DefaultExtensionManager) ListExtensions() []Extension {
 	return m.Extensions
 }
@@ -73,7 +77,7 @@ func (m *DefaultExtensionManager) kubeSetup() error {
 	if err := kubeConfig.NewChecker(m.Logger).Check(restConfig); err != nil {
 		return err
 	}
-	m.KubeConnection = restConfig
+	m.kubeConnection = restConfig
 
 	return nil
 }
@@ -121,22 +125,24 @@ func setOperatorNamespaceLabel(ctx context.Context, config *config.Config, c cli
 	return nil
 }
 
-func (m *DefaultExtensionManager) Kube() (*rest.Config, error) {
-	if m.KubeConnection == nil {
+// KubeConnection sets up a connection to a Kubernetes cluster if not existing.
+func (m *DefaultExtensionManager) KubeConnection() (*rest.Config, error) {
+	if m.kubeConnection == nil {
 		if err := m.kubeSetup(); err != nil {
 			return nil, err
 		}
 	}
-	return m.KubeConnection, nil
+	return m.kubeConnection, nil
 }
 
+// RegisterExtensions it generates and register webhooks from the Extensions loaded in the Manager
 func (m *DefaultExtensionManager) RegisterExtensions() error {
 	webhooks := []*admission.Webhook{}
 	for k, e := range m.Extensions {
 		w := NewWebHook(e)
 		admissionHook, err := w.RegisterAdmissionWebHook(
 			WebHookOptions{
-				Id:        strconv.Itoa(k),
+				ID:        strconv.Itoa(k),
 				Namespace: m.Namespace,
 				// XXX: Rember, preferably it should be configurable
 				FailurePolicy: admissionregistrationv1beta1.Fail,
@@ -172,7 +178,7 @@ func (m *DefaultExtensionManager) setup() error {
 		credsgen.NewInMemoryGenerator(m.Logger),
 		"eirini-extensions-mutating-hook-"+m.Namespace)
 
-	kubeConn, err := m.Kube()
+	kubeConn, err := m.KubeConnection()
 	if err != nil {
 		return errors.Wrap(err, "Failed connecting to kubernetes cluster")
 	}
@@ -208,6 +214,7 @@ func (m *DefaultExtensionManager) setup() error {
 	return nil
 }
 
+// Start starts the WebHook server infinite loop, and returns an error on failure
 func (m *DefaultExtensionManager) Start() error {
 	defer m.Logger.Sync()
 
