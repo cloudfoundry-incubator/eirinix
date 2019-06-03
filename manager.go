@@ -5,26 +5,26 @@ import (
 	"strconv"
 	"time"
 
-	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen/in_memory_generator"
+	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen"
+	inmemorycredgen "code.cloudfoundry.org/cf-operator/pkg/credsgen/in_memory_generator"
+	"go.uber.org/zap"
+
 	kubeConfig "code.cloudfoundry.org/cf-operator/pkg/kube/config"
 	"code.cloudfoundry.org/cf-operator/pkg/kube/util/config"
 	"github.com/SUSE/eirinix/util/ctxlog"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
-	"go.uber.org/zap"
-
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	machinerytypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	"k8s.io/client-go/rest"
 )
 
 // DefaultExtensionManager represent an implementation of Manager
@@ -34,12 +34,13 @@ type DefaultExtensionManager struct {
 	Port            int32
 	KubeConfig      string
 	kubeConnection  *rest.Config
-	kubeManager     manager.Manager
+	KubeManager     manager.Manager
 	Logger          *zap.SugaredLogger
 	Context         context.Context
 	Config          *config.Config
 	WebHookConfig   *WebhookConfig
 	WebHookServer   *webhook.Server
+	Credsgen        credsgen.Generator
 }
 
 var addToSchemes = runtime.SchemeBuilder{}
@@ -53,7 +54,13 @@ func AddToScheme(s *runtime.Scheme) error {
 // the kubeconfig file and the logger are optional
 func NewManager(namespace, host string, port int32, kubeConfigfile string, logger *zap.SugaredLogger) Manager {
 	if logger == nil {
-		logger = &zap.SugaredLogger{}
+		z, e := zap.NewProduction()
+		if e != nil {
+			panic(errors.New("Cannot create logger"))
+		}
+		defer z.Sync() // flushes buffer, if any
+		sugar := z.Sugar()
+		logger = sugar
 	}
 	return &DefaultExtensionManager{Namespace: namespace, Host: host, Port: port, KubeConfig: kubeConfigfile, Logger: logger}
 }
@@ -82,10 +89,32 @@ func (m *DefaultExtensionManager) kubeSetup() error {
 	return nil
 }
 
-func (m *DefaultExtensionManager) operatorSetup() error {
+func (m *DefaultExtensionManager) OperatorSetup() error {
+	disableConfigInstaller := true
+	m.Context = ctxlog.NewManagerContext(m.Logger)
+	m.WebHookConfig = NewWebhookConfig(
+		m.KubeManager.GetClient(),
+		m.Config,
+		m.Credsgen,
+		"eirini-extensions-mutating-hook-"+m.Namespace)
 
-	err := setOperatorNamespaceLabel(m.Context, m.Config, m.kubeManager.GetClient())
+	hookServer, err := webhook.NewServer("eirini-extensions", m.KubeManager, webhook.ServerOptions{
+		Port:                          m.Config.WebhookServerPort,
+		CertDir:                       m.WebHookConfig.CertDir,
+		DisableWebhookConfigInstaller: &disableConfigInstaller,
+		BootstrapOptions: &webhook.BootstrapOptions{
+			MutatingWebhookConfigName: m.WebHookConfig.ConfigName,
+			Host:                      &m.Config.WebhookServerHost,
+			// The user should probably be able to use a service instead.
+			// Service: ??
+		},
+	})
 	if err != nil {
+		return err
+	}
+	m.WebHookServer = hookServer
+
+	if err := setOperatorNamespaceLabel(m.Context, m.Config, m.KubeManager.GetClient()); err != nil {
 		return errors.Wrap(err, "setting the operator namespace label")
 	}
 
@@ -93,7 +122,6 @@ func (m *DefaultExtensionManager) operatorSetup() error {
 	if err != nil {
 		return errors.Wrap(err, "setting up the webhook server certificate")
 	}
-
 	return nil
 }
 
@@ -146,7 +174,7 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 				Namespace: m.Namespace,
 				// XXX: Rember, preferably it should be configurable
 				FailurePolicy: admissionregistrationv1beta1.Fail,
-				Manager:       m.kubeManager,
+				Manager:       m.KubeManager,
 				WebHookServer: m.WebHookServer,
 			})
 		if err != nil {
@@ -155,16 +183,14 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 		webhooks = append(webhooks, admissionHook)
 	}
 
-	err := m.WebHookConfig.generateWebhookServerConfig(m.Context, webhooks)
-	if err != nil {
+	if err := m.WebHookConfig.generateWebhookServerConfig(m.Context, webhooks); err != nil {
 		return errors.Wrap(err, "generating the webhook server configuration")
 	}
 	return nil
 }
 
-func (m *DefaultExtensionManager) setup() error {
-	m.Context = ctxlog.NewManagerContext(m.Logger)
-
+func (m *DefaultExtensionManager) Setup() error {
+	m.Credsgen = inmemorycredgen.NewInMemoryGenerator(m.Logger)
 	m.Config = &config.Config{
 		CtxTimeOut:        10 * time.Second,
 		Namespace:         m.Namespace,
@@ -186,29 +212,12 @@ func (m *DefaultExtensionManager) setup() error {
 		return err
 	}
 
-	m.kubeManager = mgr
+	m.KubeManager = mgr
 
-	disableConfigInstaller := true
-	hookServer, err := webhook.NewServer("eirini-extensions", m.kubeManager, webhook.ServerOptions{
-		Port:                          m.Config.WebhookServerPort,
-		CertDir:                       m.WebHookConfig.CertDir,
-		DisableWebhookConfigInstaller: &disableConfigInstaller,
-		BootstrapOptions: &webhook.BootstrapOptions{
-			MutatingWebhookConfigName: m.WebHookConfig.ConfigName,
-			Host:                      &m.Config.WebhookServerHost,
-			// The user should probably be able to use a service instead.
-			// Service: ??
-		},
-	})
-	if err != nil {
+	if err := m.OperatorSetup(); err != nil {
 		return err
 	}
-	m.WebHookServer = hookServer
-	m.WebHookConfig = NewWebhookConfig(
-		m.kubeManager.GetClient(),
-		m.Config,
-		credsgen.NewInMemoryGenerator(m.Logger),
-		"eirini-extensions-mutating-hook-"+m.Namespace)
+
 	return nil
 }
 
@@ -216,12 +225,12 @@ func (m *DefaultExtensionManager) setup() error {
 func (m *DefaultExtensionManager) Start() error {
 	defer m.Logger.Sync()
 
-	if err := m.setup(); err != nil {
+	if err := m.Setup(); err != nil {
 		return err
 	}
 
 	// Setup Scheme for all resources
-	if err := AddToScheme(m.kubeManager.GetScheme()); err != nil {
+	if err := AddToScheme(m.KubeManager.GetScheme()); err != nil {
 		return err
 	}
 
@@ -229,9 +238,9 @@ func (m *DefaultExtensionManager) Start() error {
 		return err
 	}
 
-	if err := m.operatorSetup(); err != nil {
-		return err
-	}
+	// if err := m.OperatorSetup(); err != nil {
+	// 	return err
+	// }
 
-	return m.kubeManager.Start(signals.SetupSignalHandler())
+	return m.KubeManager.Start(signals.SetupSignalHandler())
 }

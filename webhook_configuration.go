@@ -3,7 +3,6 @@ package extension
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"net"
 	"net/url"
 	"path"
@@ -156,7 +155,7 @@ func (f *WebhookConfig) setupCertificate(ctx context.Context) error {
 
 func (f *WebhookConfig) generateWebhookServerConfig(ctx context.Context, webhooks []*admission.Webhook) error {
 	if len(f.CaCertificate) == 0 {
-		return fmt.Errorf("Can not create a webhook server config with an empty ca certificate")
+		return errors.New("Can not create a webhook server config with an empty ca certificate")
 	}
 
 	config := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
