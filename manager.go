@@ -29,18 +29,24 @@ import (
 
 // DefaultExtensionManager represent an implementation of Manager
 type DefaultExtensionManager struct {
-	Extensions      []Extension
+	Extensions     []Extension
+	kubeConnection *rest.Config
+	KubeManager    manager.Manager
+	Logger         *zap.SugaredLogger
+	Context        context.Context
+	Config         *config.Config
+	WebHookConfig  *WebhookConfig
+	WebHookServer  *webhook.Server
+	Credsgen       credsgen.Generator
+	Options        ManagerOptions
+}
+
+type ManagerOptions struct {
 	Namespace, Host string
 	Port            int32
 	KubeConfig      string
-	kubeConnection  *rest.Config
-	KubeManager     manager.Manager
 	Logger          *zap.SugaredLogger
-	Context         context.Context
-	Config          *config.Config
-	WebHookConfig   *WebhookConfig
-	WebHookServer   *webhook.Server
-	Credsgen        credsgen.Generator
+	FailurePolicy   *admissionregistrationv1beta1.FailurePolicyType
 }
 
 var addToSchemes = runtime.SchemeBuilder{}
@@ -52,17 +58,24 @@ func AddToScheme(s *runtime.Scheme) error {
 
 // NewManager returns a manager for the kubernetes cluster.
 // the kubeconfig file and the logger are optional
-func NewManager(namespace, host string, port int32, kubeConfigfile string, logger *zap.SugaredLogger) Manager {
-	if logger == nil {
+func NewManager(opts ManagerOptions) Manager {
+
+	if opts.Logger == nil {
 		z, e := zap.NewProduction()
 		if e != nil {
 			panic(errors.New("Cannot create logger"))
 		}
 		defer z.Sync() // flushes buffer, if any
 		sugar := z.Sugar()
-		logger = sugar
+		opts.Logger = sugar
 	}
-	return &DefaultExtensionManager{Namespace: namespace, Host: host, Port: port, KubeConfig: kubeConfigfile, Logger: logger}
+
+	if opts.FailurePolicy == nil {
+		failurePolicy := admissionregistrationv1beta1.Fail
+		opts.FailurePolicy = &failurePolicy
+	}
+
+	return &DefaultExtensionManager{Options: opts}
 }
 
 // AddExtension adds an Erini extension to the manager
@@ -77,7 +90,7 @@ func (m *DefaultExtensionManager) ListExtensions() []Extension {
 
 func (m *DefaultExtensionManager) kubeSetup() error {
 	// XXX: If kubeConfig Getter path is empty it will get from env
-	restConfig, err := kubeConfig.NewGetter(m.Logger).Get(m.KubeConfig)
+	restConfig, err := kubeConfig.NewGetter(m.Logger).Get(m.Options.KubeConfig)
 	if err != nil {
 		return err
 	}
@@ -96,7 +109,7 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 		m.KubeManager.GetClient(),
 		m.Config,
 		m.Credsgen,
-		"eirini-extensions-mutating-hook-"+m.Namespace)
+		"eirini-extensions-mutating-hook-"+m.Options.Namespace)
 
 	hookServer, err := webhook.NewServer("eirini-extensions", m.KubeManager, webhook.ServerOptions{
 		Port:                          m.Config.WebhookServerPort,
@@ -170,10 +183,9 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 		w := NewWebHook(e)
 		admissionHook, err := w.RegisterAdmissionWebHook(
 			WebHookOptions{
-				ID:        strconv.Itoa(k),
-				Namespace: m.Namespace,
-				// XXX: Rember, preferably it should be configurable
-				FailurePolicy: admissionregistrationv1beta1.Fail,
+				ID:            strconv.Itoa(k),
+				Namespace:     m.Options.Namespace,
+				FailurePolicy: *m.Options.FailurePolicy,
 				Manager:       m.KubeManager,
 				WebHookServer: m.WebHookServer,
 			})
@@ -193,8 +205,8 @@ func (m *DefaultExtensionManager) Setup() error {
 	m.Credsgen = inmemorycredgen.NewInMemoryGenerator(m.Logger)
 	m.Config = &config.Config{
 		CtxTimeOut:        10 * time.Second,
-		Namespace:         m.Namespace,
-		WebhookServerHost: m.Host,
+		Namespace:         m.Options.Namespace,
+		WebhookServerHost: m.Options.Host,
 		Fs:                afero.NewOsFs(),
 	}
 
@@ -206,7 +218,7 @@ func (m *DefaultExtensionManager) Setup() error {
 	mgr, err := manager.New(
 		kubeConn,
 		manager.Options{
-			Namespace: m.Namespace,
+			Namespace: m.Options.Namespace,
 		})
 	if err != nil {
 		return err

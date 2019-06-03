@@ -3,7 +3,6 @@ package extension_test
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 
 	. "github.com/SUSE/eirinix"
 	catalog "github.com/SUSE/eirinix/testing"
@@ -31,19 +30,16 @@ var _ = Describe("Extension Manager", func() {
 	c := catalog.NewCatalog()
 	Manager := c.SimpleManager()
 	eiriniManager, _ := Manager.(*DefaultExtensionManager)
-	e := eiriniManager.Setup()
 
 	Context("Object creation", func() {
 		manager := c.SimpleManager()
 		It("Is an interface", func() {
-			fmt.Println("SETUP", e)
 			m, ok := manager.(*DefaultExtensionManager)
 			Expect(ok).To(Equal(true))
-			Expect(m.Namespace).To(Equal("namespace"))
-			Expect(m.Host).To(Equal("127.0.0.1"))
-			Expect(m.Port).To(Equal(int32(90)))
+			Expect(m.Options.Namespace).To(Equal("namespace"))
+			Expect(m.Options.Host).To(Equal("127.0.0.1"))
+			Expect(m.Options.Port).To(Equal(int32(90)))
 		})
-
 	})
 
 	var (
@@ -76,7 +72,7 @@ var _ = Describe("Extension Manager", func() {
 		eiriniManager.Config = config
 		eiriniManager.KubeManager = manager
 		eiriniManager.Credsgen = generator
-		eiriniManager.Namespace = "default"
+		eiriniManager.Options.Namespace = "default"
 	})
 
 	It("sets the operator namespace label", func() {
