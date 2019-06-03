@@ -9,13 +9,17 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/builder"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
+
+type setReferenceFunc func(owner, object metav1.Object, scheme *runtime.Scheme) error
 
 // DefaultMutatingWebHook is the implementation of the WebHook generated out of the Eirini Extension
 type DefaultMutatingWebHook struct {
@@ -24,6 +28,7 @@ type DefaultMutatingWebHook struct {
 	//WebHookHandle WebHookHandler
 	EiriniExtension  Extension
 	FilterEiriniApps bool
+	setReference     setReferenceFunc
 }
 
 // GetPod retrieves a pod from a types.Request
@@ -44,7 +49,7 @@ type WebHookOptions struct {
 
 // NewWebHook returns a MutatingWebHook out of an Eirini Extension
 func NewWebHook(e Extension) MutatingWebHook {
-	return &DefaultMutatingWebHook{EiriniExtension: e}
+	return &DefaultMutatingWebHook{EiriniExtension: e, setReference: controllerutil.SetControllerReference}
 }
 
 func (w *DefaultMutatingWebHook) getNamespaceSelector(opts WebHookOptions) *metav1.LabelSelector {
