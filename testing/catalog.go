@@ -30,3 +30,8 @@ func (c *Catalog) SimpleExtension() eirinix.Extension {
 	return &testExtension{
 		parentExtension{Name: "test"}}
 }
+
+// SimpleManager returns a dummy Extensions manager
+func (c *Catalog) SimpleManager() eirinix.Manager {
+	return eirinix.NewManager("namespace", "127.0.0.1", 90, "", nil)
+}

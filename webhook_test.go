@@ -6,12 +6,12 @@ import (
 	. "github.com/SUSE/eirinix"
 	catalog "github.com/SUSE/eirinix/testing"
 	. "github.com/onsi/ginkgo"
+
 	. "github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
 var _ = Describe("WebHook implementation", func() {
-
 	c := catalog.NewCatalog()
 	w := NewWebHook(c.SimpleExtension())
 
@@ -30,5 +30,6 @@ var _ = Describe("WebHook implementation", func() {
 			Expect(ok).To(Equal(true))
 			Expect(v).To(Equal("test"))
 		})
+
 	})
 })
