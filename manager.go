@@ -42,11 +42,12 @@ type DefaultExtensionManager struct {
 }
 
 type ManagerOptions struct {
-	Namespace, Host string
-	Port            int32
-	KubeConfig      string
-	Logger          *zap.SugaredLogger
-	FailurePolicy   *admissionregistrationv1beta1.FailurePolicyType
+	Namespace, Host  string
+	Port             int32
+	KubeConfig       string
+	Logger           *zap.SugaredLogger
+	FailurePolicy    *admissionregistrationv1beta1.FailurePolicyType
+	FilterEiriniApps bool
 }
 
 var addToSchemes = runtime.SchemeBuilder{}
@@ -74,6 +75,8 @@ func NewManager(opts ManagerOptions) Manager {
 		failurePolicy := admissionregistrationv1beta1.Fail
 		opts.FailurePolicy = &failurePolicy
 	}
+
+	opts.FilterEiriniApps = true
 
 	return &DefaultExtensionManager{Options: opts}
 }
@@ -183,11 +186,12 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 		w := NewWebHook(e)
 		admissionHook, err := w.RegisterAdmissionWebHook(
 			WebHookOptions{
-				ID:            strconv.Itoa(k),
-				Namespace:     m.Options.Namespace,
-				FailurePolicy: *m.Options.FailurePolicy,
-				Manager:       m.KubeManager,
-				WebHookServer: m.WebHookServer,
+				ID:               strconv.Itoa(k),
+				Namespace:        m.Options.Namespace,
+				FailurePolicy:    *m.Options.FailurePolicy,
+				Manager:          m.KubeManager,
+				WebHookServer:    m.WebHookServer,
+				FilterEiriniApps: m.Options.FilterEiriniApps,
 			})
 		if err != nil {
 			return err

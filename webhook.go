@@ -3,6 +3,7 @@ package extension
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/pkg/errors"
 
@@ -22,17 +23,26 @@ type DefaultMutatingWebHook struct {
 	decoder types.Decoder
 	client  client.Client
 	//WebHookHandle WebHookHandler
-	EiriniExtension Extension
+	EiriniExtension  Extension
+	FilterEiriniApps bool
+}
+
+// GetPod retrieves a pod from a types.Request
+func (w *DefaultMutatingWebHook) GetPod(req types.Request) (*corev1.Pod, error) {
+	pod := &corev1.Pod{}
+	err := w.decoder.Decode(req, pod)
+	return pod, err
 }
 
 // WebHookOptions are the options required to register a WebHook to the WebHook server
 type WebHookOptions struct {
-	ID            string // Webhook path will be generated out of that
-	MatchLabels   map[string]string
-	FailurePolicy admissionregistrationv1beta1.FailurePolicyType
-	Namespace     string
-	Manager       manager.Manager
-	WebHookServer *webhook.Server
+	ID               string // Webhook path will be generated out of that
+	MatchLabels      map[string]string
+	FailurePolicy    admissionregistrationv1beta1.FailurePolicyType
+	Namespace        string
+	Manager          manager.Manager
+	WebHookServer    *webhook.Server
+	FilterEiriniApps bool
 }
 
 // NewWebHook returns a MutatingWebHook out of an Eirini Extension
@@ -53,6 +63,8 @@ func (w *DefaultMutatingWebHook) getNamespaceSelector(opts WebHookOptions) *meta
 
 // RegisterAdmissionWebHook registers the Mutating WebHook to the WebHook Server and returns the generated Admission Webhook
 func (w *DefaultMutatingWebHook) RegisterAdmissionWebHook(opts WebHookOptions) (*admission.Webhook, error) {
+
+	w.FilterEiriniApps = opts.FilterEiriniApps
 	mutatingWebhook, err := builder.NewWebhookBuilder().
 		Path(fmt.Sprintf("/%s", opts.ID)).
 		Mutating().
@@ -87,5 +99,22 @@ func (w *DefaultMutatingWebHook) InjectDecoder(d types.Decoder) error {
 
 // Handle delegates the Handle function to the Eirini Extension
 func (w *DefaultMutatingWebHook) Handle(ctx context.Context, req types.Request) types.Response {
-	return w.EiriniExtension.Handle(ctx, req)
+	if !w.FilterEiriniApps {
+		return w.EiriniExtension.Handle(ctx, req)
+	}
+
+	pod, err := w.GetPod(req)
+	if err != nil {
+		return admission.ErrorResponse(http.StatusBadRequest, err)
+	}
+	podCopy := pod.DeepCopy()
+
+	// Patch only applications pod created by Eirini
+	if v, ok := pod.GetLabels()["source_type"]; ok && v == "APP" {
+
+		return w.EiriniExtension.Handle(ctx, req)
+	}
+
+	return admission.PatchResponse(pod, podCopy)
+
 }
