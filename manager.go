@@ -2,6 +2,7 @@ package extension
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -42,12 +43,13 @@ type DefaultExtensionManager struct {
 }
 
 type ManagerOptions struct {
-	Namespace, Host  string
-	Port             int32
-	KubeConfig       string
-	Logger           *zap.SugaredLogger
-	FailurePolicy    *admissionregistrationv1beta1.FailurePolicyType
-	FilterEiriniApps bool
+	Namespace, Host     string
+	Port                int32
+	KubeConfig          string
+	Logger              *zap.SugaredLogger
+	FailurePolicy       *admissionregistrationv1beta1.FailurePolicyType
+	FilterEiriniApps    bool
+	OperatorFingerprint string
 }
 
 var addToSchemes = runtime.SchemeBuilder{}
@@ -77,7 +79,7 @@ func NewManager(opts ManagerOptions) Manager {
 	}
 
 	opts.FilterEiriniApps = true
-
+	opts.OperatorFingerprint = "eirini-x"
 	return &DefaultExtensionManager{Options: opts}
 }
 
@@ -92,7 +94,6 @@ func (m *DefaultExtensionManager) ListExtensions() []Extension {
 }
 
 func (m *DefaultExtensionManager) kubeSetup() error {
-	// XXX: If kubeConfig Getter path is empty it will get from env
 	restConfig, err := kubeConfig.NewGetter(m.Logger).Get(m.Options.KubeConfig)
 	if err != nil {
 		return err
@@ -112,25 +113,22 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 		m.KubeManager.GetClient(),
 		m.Config,
 		m.Credsgen,
-		"eirini-extensions-mutating-hook-"+m.Options.Namespace)
+		fmt.Sprintf("%s-mutating-hook-%s", m.Options.OperatorFingerprint, m.Options.Namespace))
 
-	hookServer, err := webhook.NewServer("eirini-extensions", m.KubeManager, webhook.ServerOptions{
+	hookServer, err := webhook.NewServer(m.Options.OperatorFingerprint, m.KubeManager, webhook.ServerOptions{
 		Port:                          m.Config.WebhookServerPort,
 		CertDir:                       m.WebHookConfig.CertDir,
 		DisableWebhookConfigInstaller: &disableConfigInstaller,
 		BootstrapOptions: &webhook.BootstrapOptions{
 			MutatingWebhookConfigName: m.WebHookConfig.ConfigName,
-			Host:                      &m.Config.WebhookServerHost,
-			// The user should probably be able to use a service instead.
-			// Service: ??
-		},
+			Host:                      &m.Config.WebhookServerHost},
 	})
 	if err != nil {
 		return err
 	}
 	m.WebHookServer = hookServer
 
-	if err := setOperatorNamespaceLabel(m.Context, m.Config, m.KubeManager.GetClient()); err != nil {
+	if err := m.setOperatorNamespaceLabel(m.Context, m.Config, m.KubeManager.GetClient()); err != nil {
 		return errors.Wrap(err, "setting the operator namespace label")
 	}
 
@@ -141,7 +139,7 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 	return nil
 }
 
-func setOperatorNamespaceLabel(ctx context.Context, config *config.Config, c client.Client) error {
+func (m *DefaultExtensionManager) setOperatorNamespaceLabel(ctx context.Context, config *config.Config, c client.Client) error {
 	ns := &unstructured.Unstructured{}
 	ns.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "",
@@ -158,7 +156,7 @@ func setOperatorNamespaceLabel(ctx context.Context, config *config.Config, c cli
 	if labels == nil {
 		labels = map[string]string{}
 	}
-	labels["eirini-extensions-ns"] = config.Namespace
+	labels[m.Options.getDefaultNamespaceLabel()] = config.Namespace
 	ns.SetLabels(labels)
 	err = c.Update(ctx, ns)
 
@@ -186,12 +184,10 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 		w := NewWebHook(e)
 		admissionHook, err := w.RegisterAdmissionWebHook(
 			WebHookOptions{
-				ID:               strconv.Itoa(k),
-				Namespace:        m.Options.Namespace,
-				FailurePolicy:    *m.Options.FailurePolicy,
-				Manager:          m.KubeManager,
-				WebHookServer:    m.WebHookServer,
-				FilterEiriniApps: m.Options.FilterEiriniApps,
+				ID:             strconv.Itoa(k),
+				Manager:        m.KubeManager,
+				WebHookServer:  m.WebHookServer,
+				ManagerOptions: m.Options,
 			})
 		if err != nil {
 			return err
@@ -254,9 +250,9 @@ func (m *DefaultExtensionManager) Start() error {
 		return err
 	}
 
-	// if err := m.OperatorSetup(); err != nil {
-	// 	return err
-	// }
-
 	return m.KubeManager.Start(signals.SetupSignalHandler())
+}
+
+func (o *ManagerOptions) getDefaultNamespaceLabel() string {
+	return fmt.Sprintf("%s-ns", o.OperatorFingerprint)
 }

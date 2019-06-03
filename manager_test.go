@@ -39,6 +39,12 @@ var _ = Describe("Extension Manager", func() {
 			Expect(m.Options.Namespace).To(Equal("namespace"))
 			Expect(m.Options.Host).To(Equal("127.0.0.1"))
 			Expect(m.Options.Port).To(Equal(int32(90)))
+			defaultPolicy := admissionregistrationv1beta1.Fail
+			Expect(m.Options.FailurePolicy).To(Equal(&defaultPolicy))
+			Expect(m.Options.OperatorFingerprint).To(Equal("eirini-x"))
+			Expect(m.Options.KubeConfig).To(Equal(""))
+			Expect(m.Options.Logger).NotTo(Equal(nil))
+			Expect(m.Options.FilterEiriniApps).To(Equal(true))
 		})
 	})
 
@@ -79,7 +85,7 @@ var _ = Describe("Extension Manager", func() {
 		client.UpdateCalls(func(_ context.Context, object runtime.Object) error {
 			ns := object.(*unstructured.Unstructured)
 			labels := ns.GetLabels()
-			Expect(labels["eirini-extensions-ns"]).To(Equal(config.Namespace))
+			Expect(labels["eirini-x-ns"]).To(Equal(config.Namespace))
 
 			return nil
 		})
@@ -142,11 +148,11 @@ var _ = Describe("Extension Manager", func() {
 		It("generates the webhook configuration", func() {
 			client.CreateCalls(func(context context.Context, object runtime.Object) error {
 				config := object.(*admissionregistrationv1beta1.MutatingWebhookConfiguration)
-				Expect(config.Name).To(Equal("eirini-extensions-mutating-hook-" + config.Namespace))
+				Expect(config.Name).To(Equal("eirini-x-mutating-hook-" + config.Namespace))
 				Expect(len(config.Webhooks)).To(Equal(1))
 
 				wh := config.Webhooks[0]
-				Expect(wh.Name).To(Equal("0.eirinix.org"))
+				Expect(wh.Name).To(Equal("0.eirini-x.org"))
 				Expect(*wh.ClientConfig.URL).To(Equal("https://foo.com:1234/0"))
 				Expect(wh.ClientConfig.CABundle).To(ContainSubstring("the-ca-cert"))
 				Expect(*wh.FailurePolicy).To(Equal(admissionregistrationv1beta1.Fail))

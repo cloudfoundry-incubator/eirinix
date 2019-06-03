@@ -17,7 +17,7 @@ var _ = Describe("WebHook implementation", func() {
 
 	Context("With a fake extension", func() {
 		It("It errors without a manager", func() {
-			_, err := w.RegisterAdmissionWebHook(WebHookOptions{ID: "volume", Namespace: "eirini"})
+			_, err := w.RegisterAdmissionWebHook(WebHookOptions{ID: "volume", ManagerOptions: ManagerOptions{Namespace: "eirini", OperatorFingerprint: "eirini-x"}})
 			Expect(err).To(Not(BeNil()))
 		})
 

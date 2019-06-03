@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,13 +35,11 @@ func (w *DefaultMutatingWebHook) GetPod(req types.Request) (*corev1.Pod, error) 
 
 // WebHookOptions are the options required to register a WebHook to the WebHook server
 type WebHookOptions struct {
-	ID               string // Webhook path will be generated out of that
-	MatchLabels      map[string]string
-	FailurePolicy    admissionregistrationv1beta1.FailurePolicyType
-	Namespace        string
-	Manager          manager.Manager
-	WebHookServer    *webhook.Server
-	FilterEiriniApps bool
+	ID             string // Webhook path will be generated out of that
+	MatchLabels    map[string]string
+	Manager        manager.Manager
+	WebHookServer  *webhook.Server
+	ManagerOptions ManagerOptions
 }
 
 // NewWebHook returns a MutatingWebHook out of an Eirini Extension
@@ -54,7 +51,7 @@ func (w *DefaultMutatingWebHook) getNamespaceSelector(opts WebHookOptions) *meta
 	if len(opts.MatchLabels) == 0 {
 		return &metav1.LabelSelector{
 			MatchLabels: map[string]string{
-				"eirini-extensions-ns": opts.Namespace,
+				opts.ManagerOptions.getDefaultNamespaceLabel(): opts.ManagerOptions.Namespace,
 			},
 		}
 	}
@@ -63,17 +60,19 @@ func (w *DefaultMutatingWebHook) getNamespaceSelector(opts WebHookOptions) *meta
 
 // RegisterAdmissionWebHook registers the Mutating WebHook to the WebHook Server and returns the generated Admission Webhook
 func (w *DefaultMutatingWebHook) RegisterAdmissionWebHook(opts WebHookOptions) (*admission.Webhook, error) {
-
-	w.FilterEiriniApps = opts.FilterEiriniApps
+	if opts.ManagerOptions.FailurePolicy == nil {
+		return nil, errors.New("No failure policy set")
+	}
+	w.FilterEiriniApps = opts.ManagerOptions.FilterEiriniApps
 	mutatingWebhook, err := builder.NewWebhookBuilder().
 		Path(fmt.Sprintf("/%s", opts.ID)).
 		Mutating().
 		NamespaceSelector(w.getNamespaceSelector(opts)).
 		ForType(&corev1.Pod{}).
-		Name(fmt.Sprintf("%s.eirinix.org", opts.ID)).
+		Name(fmt.Sprintf("%s.%s.org", opts.ID, opts.ManagerOptions.OperatorFingerprint)).
 		Handlers(w).
 		WithManager(opts.Manager).
-		FailurePolicy(opts.FailurePolicy).
+		FailurePolicy(*opts.ManagerOptions.FailurePolicy).
 		Build()
 
 	if err != nil {
@@ -112,7 +111,6 @@ func (w *DefaultMutatingWebHook) Handle(ctx context.Context, req types.Request) 
 
 	// Patch only applications pod created by Eirini
 	if v, ok := pod.GetLabels()["source_type"]; ok && v == "APP" {
-
 		return w.EiriniExtension.Handle(ctx, req)
 	}
 
