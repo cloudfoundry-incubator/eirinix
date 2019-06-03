@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"net"
 	"net/url"
+	"os"
 	"path"
 	"strconv"
 
@@ -33,19 +34,21 @@ type WebhookConfig struct {
 	CaCertificate []byte
 	CaKey         []byte
 
-	client    client.Client
-	config    *config.Config
-	generator credsgen.Generator
+	setupCertificateName string
+	client               client.Client
+	config               *config.Config
+	generator            credsgen.Generator
 }
 
-// NewWebhookConfig returns a new WebhookConfig
-func NewWebhookConfig(c client.Client, config *config.Config, generator credsgen.Generator, configName string) *WebhookConfig {
+// NewWebhookConfig returns a new WebhookConfi
+func NewWebhookConfig(c client.Client, config *config.Config, generator credsgen.Generator, configName string, setupCertificateName string) *WebhookConfig {
 	return &WebhookConfig{
-		ConfigName: configName,
-		CertDir:    "/tmp/eirini-extensions-certs",
-		client:     c,
-		config:     config,
-		generator:  generator,
+		ConfigName:           configName,
+		CertDir:              path.Join(os.TempDir(), setupCertificateName),
+		client:               c,
+		config:               config,
+		generator:            generator,
+		setupCertificateName: setupCertificateName,
 	}
 }
 
@@ -53,7 +56,7 @@ func NewWebhookConfig(c client.Client, config *config.Config, generator credsgen
 // webhook server
 func (f *WebhookConfig) setupCertificate(ctx context.Context) error {
 	secretNamespacedName := machinerytypes.NamespacedName{
-		Name:      "eirini-extensions-webhook-server-cert",
+		Name:      f.setupCertificateName,
 		Namespace: f.config.Namespace,
 	}
 

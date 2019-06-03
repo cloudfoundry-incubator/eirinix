@@ -44,13 +44,14 @@ type DefaultExtensionManager struct {
 
 // ManagerOptions represent the Runtime manager options
 type ManagerOptions struct {
-	Namespace, Host     string
-	Port                int32
-	KubeConfig          string
-	Logger              *zap.SugaredLogger
-	FailurePolicy       *admissionregistrationv1beta1.FailurePolicyType
-	FilterEiriniApps    bool
-	OperatorFingerprint string
+	Namespace, Host      string
+	Port                 int32
+	KubeConfig           string
+	Logger               *zap.SugaredLogger
+	FailurePolicy        *admissionregistrationv1beta1.FailurePolicyType
+	FilterEiriniApps     bool
+	OperatorFingerprint  string
+	SetupCertificateName string
 }
 
 var addToSchemes = runtime.SchemeBuilder{}
@@ -78,9 +79,13 @@ func NewManager(opts ManagerOptions) Manager {
 		failurePolicy := admissionregistrationv1beta1.Fail
 		opts.FailurePolicy = &failurePolicy
 	}
+	opts.OperatorFingerprint = "eirini-x"
+
+	if len(opts.SetupCertificateName) == 0 {
+		opts.SetupCertificateName = opts.getSetupCertificateName()
+	}
 
 	opts.FilterEiriniApps = true
-	opts.OperatorFingerprint = "eirini-x"
 	return &DefaultExtensionManager{Options: opts}
 }
 
@@ -110,13 +115,15 @@ func (m *DefaultExtensionManager) kubeSetup() error {
 // OperatorSetup prepares the webhook server, generates certificates and configuration.
 // It also setups the namespace label for the operator
 func (m *DefaultExtensionManager) OperatorSetup() error {
+	var err error
 	disableConfigInstaller := true
 	m.Context = ctxlog.NewManagerContext(m.Logger)
 	m.WebHookConfig = NewWebhookConfig(
 		m.KubeManager.GetClient(),
 		m.Config,
 		m.Credsgen,
-		fmt.Sprintf("%s-mutating-hook-%s", m.Options.OperatorFingerprint, m.Options.Namespace))
+		fmt.Sprintf("%s-mutating-hook-%s", m.Options.OperatorFingerprint, m.Options.Namespace),
+		m.Options.SetupCertificateName)
 
 	hookServer, err := webhook.NewServer(m.Options.OperatorFingerprint, m.KubeManager, webhook.ServerOptions{
 		Port:                          m.Config.WebhookServerPort,
@@ -258,4 +265,8 @@ func (m *DefaultExtensionManager) Start() error {
 
 func (o *ManagerOptions) getDefaultNamespaceLabel() string {
 	return fmt.Sprintf("%s-ns", o.OperatorFingerprint)
+}
+
+func (o *ManagerOptions) getSetupCertificateName() string {
+	return fmt.Sprintf("%s-setupcertificate", o.OperatorFingerprint)
 }

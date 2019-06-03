@@ -98,16 +98,19 @@ var _ = Describe("Extension Manager", func() {
 
 	Context("if there is no cert secret yet", func() {
 		It("generates and persists the certificates on disk and in a secret", func() {
-			Expect(afero.Exists(config.Fs, "/tmp/eirini-extensions-certs/key.pem")).To(BeFalse())
+			Expect(eiriniManager.Options.SetupCertificateName).To(Equal("eirini-x-setupcertificate"))
+
+			Expect(afero.Exists(config.Fs, "/tmp/eirini-x-setupcertificate/key.pem")).To(BeFalse())
 			err := eiriniManager.OperatorSetup()
 			Expect(err).ToNot(HaveOccurred())
 
 			err = eiriniManager.RegisterExtensions()
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(afero.Exists(config.Fs, "/tmp/eirini-extensions-certs/key.pem")).To(BeTrue())
+			Expect(afero.Exists(config.Fs, "/tmp/eirini-x-setupcertificate/key.pem")).To(BeTrue())
 			Expect(generator.GenerateCertificateCallCount()).To(Equal(2)) // Generate CA and certificate
 			Expect(client.CreateCallCount()).To(Equal(2))                 // Persist secret and the webhook config
+
 		})
 	})
 
@@ -116,7 +119,7 @@ var _ = Describe("Extension Manager", func() {
 			secret := &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"metadata": map[string]interface{}{
-						"name":      "eirini-extensions-webhook-server-cert",
+						"name":      "eirinix",
 						"namespace": config.Namespace,
 					},
 					"data": map[string]interface{}{
@@ -142,7 +145,8 @@ var _ = Describe("Extension Manager", func() {
 			Expect(err).ToNot(HaveOccurred())
 			err = eiriniManager.RegisterExtensions()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(client.CreateCallCount()).To(Equal(1)) // webhook config
+			Expect(client.CreateCallCount()).To(Equal(1))                 // webhook config
+			Expect(generator.GenerateCertificateCallCount()).To(Equal(0)) // Generate CA and certificate
 		})
 
 		It("generates the webhook configuration", func() {
