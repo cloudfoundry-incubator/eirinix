@@ -42,6 +42,7 @@ type DefaultExtensionManager struct {
 	Options        ManagerOptions
 }
 
+// ManagerOptions represent the Runtime manager options
 type ManagerOptions struct {
 	Namespace, Host     string
 	Port                int32
@@ -106,6 +107,8 @@ func (m *DefaultExtensionManager) kubeSetup() error {
 	return nil
 }
 
+// OperatorSetup prepares the webhook server, generates certificates and configuration.
+// It also setups the namespace label for the operator
 func (m *DefaultExtensionManager) OperatorSetup() error {
 	disableConfigInstaller := true
 	m.Context = ctxlog.NewManagerContext(m.Logger)
@@ -201,7 +204,7 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 	return nil
 }
 
-func (m *DefaultExtensionManager) Setup() error {
+func (m *DefaultExtensionManager) setup() error {
 	m.Credsgen = inmemorycredgen.NewInMemoryGenerator(m.Logger)
 	m.Config = &config.Config{
 		CtxTimeOut:        10 * time.Second,
@@ -237,7 +240,7 @@ func (m *DefaultExtensionManager) Setup() error {
 func (m *DefaultExtensionManager) Start() error {
 	defer m.Logger.Sync()
 
-	if err := m.Setup(); err != nil {
+	if err := m.setup(); err != nil {
 		return err
 	}
 
