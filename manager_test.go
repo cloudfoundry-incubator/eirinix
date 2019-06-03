@@ -146,7 +146,7 @@ var _ = Describe("Extension Manager", func() {
 				Expect(len(config.Webhooks)).To(Equal(1))
 
 				wh := config.Webhooks[0]
-				Expect(wh.Name).To(Equal("0.example.com"))
+				Expect(wh.Name).To(Equal("0.eirinix.org"))
 				Expect(*wh.ClientConfig.URL).To(Equal("https://foo.com:1234/0"))
 				Expect(wh.ClientConfig.CABundle).To(ContainSubstring("the-ca-cert"))
 				Expect(*wh.FailurePolicy).To(Equal(admissionregistrationv1beta1.Fail))

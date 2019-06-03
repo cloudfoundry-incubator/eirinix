@@ -70,6 +70,7 @@ func (w *DefaultMutatingWebHook) RegisterAdmissionWebHook(opts WebHookOptions) (
 		Mutating().
 		NamespaceSelector(w.getNamespaceSelector(opts)).
 		ForType(&corev1.Pod{}).
+		Name(fmt.Sprintf("%s.eirinix.org", opts.ID)).
 		Handlers(w).
 		WithManager(opts.Manager).
 		FailurePolicy(opts.FailurePolicy).
