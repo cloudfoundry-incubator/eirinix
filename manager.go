@@ -99,6 +99,11 @@ func (m *DefaultExtensionManager) ListExtensions() []Extension {
 	return m.Extensions
 }
 
+// GetLogger returns the Manager injected logger
+func (m *DefaultExtensionManager) GetLogger() *zap.SugaredLogger {
+	return m.Logger
+}
+
 func (m *DefaultExtensionManager) kubeSetup() error {
 	restConfig, err := kubeConfig.NewGetter(m.Logger).Get(m.Options.KubeConfig)
 	if err != nil {
@@ -177,8 +182,8 @@ func (m *DefaultExtensionManager) setOperatorNamespaceLabel(ctx context.Context,
 	return nil
 }
 
-// KubeConnection sets up a connection to a Kubernetes cluster if not existing.
-func (m *DefaultExtensionManager) KubeConnection() (*rest.Config, error) {
+// GetKubeConnection sets up a connection to a Kubernetes cluster if not existing.
+func (m *DefaultExtensionManager) GetKubeConnection() (*rest.Config, error) {
 	if m.kubeConnection == nil {
 		if err := m.kubeSetup(); err != nil {
 			return nil, err
@@ -220,7 +225,7 @@ func (m *DefaultExtensionManager) setup() error {
 		Fs:                afero.NewOsFs(),
 	}
 
-	kubeConn, err := m.KubeConnection()
+	kubeConn, err := m.GetKubeConnection()
 	if err != nil {
 		return errors.Wrap(err, "Failed connecting to kubernetes cluster")
 	}

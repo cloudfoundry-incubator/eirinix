@@ -3,6 +3,7 @@ package extension
 import (
 	"context"
 
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/client-go/rest"
@@ -31,6 +32,6 @@ type Manager interface {
 	AddExtension(e Extension)
 	Start() error
 	ListExtensions() []Extension
-	KubeConnection() (*rest.Config, error)
-	//Logger(*zap.SugaredLogger)
+	GetKubeConnection() (*rest.Config, error)
+	GetLogger() *zap.SugaredLogger
 }
