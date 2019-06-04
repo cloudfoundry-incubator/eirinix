@@ -86,7 +86,7 @@ func NewManager(opts ManagerOptions) Manager {
 	}
 
 	opts.FilterEiriniApps = true
-	return &DefaultExtensionManager{Options: opts}
+	return &DefaultExtensionManager{Options: opts, Logger: opts.Logger}
 }
 
 // AddExtension adds an Erini extension to the manager
