@@ -191,7 +191,7 @@ func (m *DefaultExtensionManager) KubeConnection() (*rest.Config, error) {
 func (m *DefaultExtensionManager) RegisterExtensions() error {
 	webhooks := []*admission.Webhook{}
 	for k, e := range m.Extensions {
-		w := NewWebHook(e)
+		w := NewWebHook(e, m)
 		admissionHook, err := w.RegisterAdmissionWebHook(
 			WebHookOptions{
 				ID:             strconv.Itoa(k),

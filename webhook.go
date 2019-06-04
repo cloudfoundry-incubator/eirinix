@@ -25,9 +25,10 @@ type DefaultMutatingWebHook struct {
 	decoder types.Decoder
 	client  client.Client
 	//WebHookHandle WebHookHandler
-	EiriniExtension  Extension
-	FilterEiriniApps bool
-	setReference     setReferenceFunc
+	EiriniExtension        Extension
+	EiriniExtensionManager Manager
+	FilterEiriniApps       bool
+	setReference           setReferenceFunc
 }
 
 // GetPod retrieves a pod from a types.Request
@@ -50,8 +51,8 @@ type WebHookOptions struct {
 }
 
 // NewWebHook returns a MutatingWebHook out of an Eirini Extension
-func NewWebHook(e Extension) MutatingWebHook {
-	return &DefaultMutatingWebHook{EiriniExtension: e, setReference: controllerutil.SetControllerReference}
+func NewWebHook(e Extension, m Manager) MutatingWebHook {
+	return &DefaultMutatingWebHook{EiriniExtensionManager: m, EiriniExtension: e, setReference: controllerutil.SetControllerReference}
 }
 
 func (w *DefaultMutatingWebHook) getNamespaceSelector(opts WebHookOptions) *metav1.LabelSelector {
@@ -110,14 +111,14 @@ func (w *DefaultMutatingWebHook) Handle(ctx context.Context, req types.Request) 
 	pod, _ := w.GetPod(req)
 
 	if !w.FilterEiriniApps {
-		return w.EiriniExtension.Handle(ctx, pod, req)
+		return w.EiriniExtension.Handle(ctx, w.EiriniExtensionManager, pod, req)
 	}
 
 	podCopy := pod.DeepCopy()
 
 	// Patch only applications pod created by Eirini
 	if v, ok := pod.GetLabels()["source_type"]; ok && v == "APP" {
-		return w.EiriniExtension.Handle(ctx, pod, req)
+		return w.EiriniExtension.Handle(ctx, w.EiriniExtensionManager, pod, req)
 	}
 
 	return admission.PatchResponse(pod, podCopy)

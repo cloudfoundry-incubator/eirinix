@@ -14,7 +14,7 @@ import (
 
 // Extension is the Eirini Extension interface
 type Extension interface {
-	Handle(context.Context, *corev1.Pod, types.Request) types.Response
+	Handle(context.Context, Manager, *corev1.Pod, types.Request) types.Response
 }
 
 // MutatingWebHook is the interface of the generated webhook

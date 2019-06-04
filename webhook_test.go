@@ -13,7 +13,8 @@ import (
 
 var _ = Describe("WebHook implementation", func() {
 	c := catalog.NewCatalog()
-	w := NewWebHook(c.SimpleExtension())
+	m := c.SimpleManager()
+	w := NewWebHook(c.SimpleExtension(), m)
 
 	Context("With a fake extension", func() {
 		It("It errors without a manager", func() {
