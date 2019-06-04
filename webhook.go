@@ -3,7 +3,6 @@ package extension
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/pkg/errors"
 
@@ -34,6 +33,9 @@ type DefaultMutatingWebHook struct {
 // GetPod retrieves a pod from a types.Request
 func (w *DefaultMutatingWebHook) GetPod(req types.Request) (*corev1.Pod, error) {
 	pod := &corev1.Pod{}
+	if w.decoder == nil {
+		return nil, errors.New("No decoder injected")
+	}
 	err := w.decoder.Decode(req, pod)
 	return pod, err
 }
@@ -104,19 +106,18 @@ func (w *DefaultMutatingWebHook) InjectDecoder(d types.Decoder) error {
 
 // Handle delegates the Handle function to the Eirini Extension
 func (w *DefaultMutatingWebHook) Handle(ctx context.Context, req types.Request) types.Response {
+
+	pod, _ := w.GetPod(req)
+
 	if !w.FilterEiriniApps {
-		return w.EiriniExtension.Handle(ctx, req)
+		return w.EiriniExtension.Handle(ctx, pod, req)
 	}
 
-	pod, err := w.GetPod(req)
-	if err != nil {
-		return admission.ErrorResponse(http.StatusBadRequest, err)
-	}
 	podCopy := pod.DeepCopy()
 
 	// Patch only applications pod created by Eirini
 	if v, ok := pod.GetLabels()["source_type"]; ok && v == "APP" {
-		return w.EiriniExtension.Handle(ctx, req)
+		return w.EiriniExtension.Handle(ctx, pod, req)
 	}
 
 	return admission.PatchResponse(pod, podCopy)
