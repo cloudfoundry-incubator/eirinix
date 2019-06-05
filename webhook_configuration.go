@@ -73,7 +73,6 @@ func (f *WebhookConfig) setupCertificate(ctx context.Context) error {
 	if secret.GetName() != "" {
 		ctxlog.Info(ctx, "Not creating the webhook server certificate because it already exists")
 		data := secret.Object["data"].(map[string]interface{})
-		//writeSecretFiles(data["ca_private_key"].([]byte), data["ca_certificate"].([]byte), data["private_key"].([]byte), data["certificate"].([]byte), certDir)
 		caKey, err := base64.StdEncoding.DecodeString(data["ca_private_key"].(string))
 		if err != nil {
 			return err

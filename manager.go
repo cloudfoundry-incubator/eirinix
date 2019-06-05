@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	machinerytypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -35,7 +34,6 @@ type DefaultExtensionManager struct {
 	KubeManager    manager.Manager
 	Logger         *zap.SugaredLogger
 	Context        context.Context
-	Config         *config.Config
 	WebHookConfig  *WebhookConfig
 	WebHookServer  *webhook.Server
 	Credsgen       credsgen.Generator
@@ -122,8 +120,7 @@ func (m *DefaultExtensionManager) kubeSetup() error {
 func (m *DefaultExtensionManager) OperatorSetup() error {
 	var err error
 
-	m.Credsgen = inmemorycredgen.NewInMemoryGenerator(m.Logger)
-	m.Config = &config.Config{
+	cfg := &config.Config{
 		CtxTimeOut:        10 * time.Second,
 		Namespace:         m.Options.Namespace,
 		WebhookServerHost: m.Options.Host,
@@ -135,25 +132,25 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 	m.Context = ctxlog.NewManagerContext(m.Logger)
 	m.WebHookConfig = NewWebhookConfig(
 		m.KubeManager.GetClient(),
-		m.Config,
+		cfg,
 		m.Credsgen,
 		fmt.Sprintf("%s-mutating-hook-%s", m.Options.OperatorFingerprint, m.Options.Namespace),
 		m.Options.SetupCertificateName)
 
 	hookServer, err := webhook.NewServer(m.Options.OperatorFingerprint, m.KubeManager, webhook.ServerOptions{
-		Port:                          m.Config.WebhookServerPort,
+		Port:                          m.Options.Port,
 		CertDir:                       m.WebHookConfig.CertDir,
 		DisableWebhookConfigInstaller: &disableConfigInstaller,
 		BootstrapOptions: &webhook.BootstrapOptions{
 			MutatingWebhookConfigName: m.WebHookConfig.ConfigName,
-			Host:                      &m.Config.WebhookServerHost},
+			Host:                      &m.Options.Host},
 	})
 	if err != nil {
 		return err
 	}
 	m.WebHookServer = hookServer
 
-	if err := m.setOperatorNamespaceLabel(m.Context, m.Config, m.KubeManager.GetClient()); err != nil {
+	if err := m.setOperatorNamespaceLabel(); err != nil {
 		return errors.Wrap(err, "setting the operator namespace label")
 	}
 
@@ -164,14 +161,16 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 	return nil
 }
 
-func (m *DefaultExtensionManager) setOperatorNamespaceLabel(ctx context.Context, config *config.Config, c client.Client) error {
+func (m *DefaultExtensionManager) setOperatorNamespaceLabel() error {
+	c := m.KubeManager.GetClient()
+	ctx := m.Context
 	ns := &unstructured.Unstructured{}
 	ns.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "",
 		Kind:    "Namespace",
 		Version: "v1",
 	})
-	err := c.Get(ctx, machinerytypes.NamespacedName{Name: config.Namespace}, ns)
+	err := c.Get(ctx, machinerytypes.NamespacedName{Name: m.Options.Namespace}, ns)
 
 	if err != nil {
 		return errors.Wrap(err, "getting the namespace object")
@@ -181,7 +180,7 @@ func (m *DefaultExtensionManager) setOperatorNamespaceLabel(ctx context.Context,
 	if labels == nil {
 		labels = map[string]string{}
 	}
-	labels[m.Options.getDefaultNamespaceLabel()] = config.Namespace
+	labels[m.Options.getDefaultNamespaceLabel()] = m.Options.Namespace
 	ns.SetLabels(labels)
 	err = c.Update(ctx, ns)
 
@@ -227,7 +226,7 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 }
 
 func (m *DefaultExtensionManager) setup() error {
-
+	m.Credsgen = inmemorycredgen.NewInMemoryGenerator(m.Logger)
 	kubeConn, err := m.GetKubeConnection()
 	if err != nil {
 		return errors.Wrap(err, "Failed connecting to kubernetes cluster")
