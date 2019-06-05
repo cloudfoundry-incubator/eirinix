@@ -65,8 +65,8 @@ var _ = Describe("Extension Manager", func() {
 		eiriniManager.Credsgen = generator
 	})
 
-	Context("Object creation", func() {
-		It("Is an interface", func() {
+	Context("DefaultExtensionManager", func() {
+		It("satisfies the Manager interface", func() {
 			m, ok := Manager.(*DefaultExtensionManager)
 			Expect(ok).To(Equal(true))
 			Expect(m.Options.Namespace).To(Equal("default"))
@@ -80,12 +80,21 @@ var _ = Describe("Extension Manager", func() {
 			Expect(m.Logger).NotTo(Equal(nil))
 			Expect(m.Options.FilterEiriniApps).To(Equal(true))
 
+			Expect(Manager.GetLogger()).ToNot(BeNil())
+			Expect(Manager.ListExtensions()).To(BeEmpty())
 		})
 		It("Setups correctly the operator structures", func() {
 			err := eiriniManager.OperatorSetup()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(eiriniManager.WebHookServer.Port).To(Equal(eiriniManager.Options.Port))
 			Expect(eiriniManager.WebHookServer.Host).To(Equal(&eiriniManager.Options.Host))
+		})
+
+		It("called from the interface fails to start with no kube connection", func() {
+			_, err := Manager.GetKubeConnection()
+			Expect(err).ToNot(BeNil())
+			err = Manager.Start()
+			Expect(err).ToNot(BeNil())
 		})
 	})
 
@@ -157,6 +166,7 @@ var _ = Describe("Extension Manager", func() {
 				}
 				return apierrors.NewNotFound(schema.GroupResource{}, nn.Name)
 			})
+
 		})
 
 		It("does not overwrite the existing secret", func() {
@@ -187,6 +197,8 @@ var _ = Describe("Extension Manager", func() {
 			eiriniManager.AddExtension(eirinixcatalog.SimpleExtension())
 			err = eiriniManager.RegisterExtensions()
 			Expect(err).ToNot(HaveOccurred())
+
+			Expect(Manager.ListExtensions()).ToNot(BeEmpty())
 		})
 	})
 })
