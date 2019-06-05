@@ -121,6 +121,16 @@ func (m *DefaultExtensionManager) kubeSetup() error {
 // It also setups the namespace label for the operator
 func (m *DefaultExtensionManager) OperatorSetup() error {
 	var err error
+
+	m.Credsgen = inmemorycredgen.NewInMemoryGenerator(m.Logger)
+	m.Config = &config.Config{
+		CtxTimeOut:        10 * time.Second,
+		Namespace:         m.Options.Namespace,
+		WebhookServerHost: m.Options.Host,
+		WebhookServerPort: m.Options.Port,
+		Fs:                afero.NewOsFs(),
+	}
+
 	disableConfigInstaller := true
 	m.Context = ctxlog.NewManagerContext(m.Logger)
 	m.WebHookConfig = NewWebhookConfig(
@@ -217,13 +227,6 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 }
 
 func (m *DefaultExtensionManager) setup() error {
-	m.Credsgen = inmemorycredgen.NewInMemoryGenerator(m.Logger)
-	m.Config = &config.Config{
-		CtxTimeOut:        10 * time.Second,
-		Namespace:         m.Options.Namespace,
-		WebhookServerHost: m.Options.Host,
-		Fs:                afero.NewOsFs(),
-	}
 
 	kubeConn, err := m.GetKubeConnection()
 	if err != nil {
