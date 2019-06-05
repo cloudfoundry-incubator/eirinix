@@ -3,6 +3,8 @@ package extension_test
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
+	"os"
 
 	. "github.com/SUSE/eirinix"
 	catalog "github.com/SUSE/eirinix/testing"
@@ -20,44 +22,28 @@ import (
 	cfakes "github.com/SUSE/eirinix/testing/fakes"
 	. "github.com/onsi/gomega"
 
-	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
+	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen"
 	gfakes "code.cloudfoundry.org/cf-operator/pkg/credsgen/fakes"
-	"code.cloudfoundry.org/cf-operator/pkg/kube/util/config"
 	"code.cloudfoundry.org/cf-operator/testing"
 )
 
 var _ = Describe("Extension Manager", func() {
-	c := catalog.NewCatalog()
-	Manager := c.SimpleManager()
-	eiriniManager, _ := Manager.(*DefaultExtensionManager)
-
-	Context("Object creation", func() {
-		manager := c.SimpleManager()
-		It("Is an interface", func() {
-			m, ok := manager.(*DefaultExtensionManager)
-			Expect(ok).To(Equal(true))
-			Expect(m.Options.Namespace).To(Equal("namespace"))
-			Expect(m.Options.Host).To(Equal("127.0.0.1"))
-			Expect(m.Options.Port).To(Equal(int32(90)))
-			defaultPolicy := admissionregistrationv1beta1.Fail
-			Expect(m.Options.FailurePolicy).To(Equal(&defaultPolicy))
-			Expect(m.Options.OperatorFingerprint).To(Equal("eirini-x"))
-			Expect(m.Options.KubeConfig).To(Equal(""))
-			Expect(m.Options.Logger).NotTo(Equal(nil))
-			Expect(m.Options.FilterEiriniApps).To(Equal(true))
-		})
-	})
 
 	var (
-		manager   *cfakes.FakeManager
-		client    *cfakes.FakeClient
-		ctx       context.Context
-		config    *config.Config
-		generator *gfakes.FakeGenerator
-		env       testing.Catalog
+		manager        *cfakes.FakeManager
+		client         *cfakes.FakeClient
+		ctx            context.Context
+		generator      *gfakes.FakeGenerator
+		eirinixcatalog catalog.Catalog
+		Manager        Manager
+		eiriniManager  *DefaultExtensionManager
 	)
 
 	BeforeEach(func() {
+		eirinixcatalog = catalog.NewCatalog()
+		Manager = eirinixcatalog.SimpleManager()
+		eiriniManager, _ = Manager.(*DefaultExtensionManager)
+
 		AddToScheme(scheme.Scheme)
 		client = &cfakes.FakeClient{}
 		restMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
@@ -71,21 +57,71 @@ var _ = Describe("Extension Manager", func() {
 		generator = &gfakes.FakeGenerator{}
 		generator.GenerateCertificateReturns(credsgen.Certificate{Certificate: []byte("thecert")}, nil)
 
-		config = env.DefaultConfig()
 		ctx = testing.NewContext()
 
 		eiriniManager.Context = ctx
-		eiriniManager.Config = config
 		eiriniManager.KubeManager = manager
-		eiriniManager.Credsgen = generator
 		eiriniManager.Options.Namespace = "default"
+		eiriniManager.Credsgen = generator
+	})
+
+	Context("Object creation", func() {
+		It("Is an interface", func() {
+			m, ok := Manager.(*DefaultExtensionManager)
+			Expect(ok).To(Equal(true))
+			Expect(m.Options.Namespace).To(Equal("default"))
+			Expect(m.Options.Host).To(Equal("127.0.0.1"))
+			Expect(m.Options.Port).To(Equal(int32(90)))
+			defaultPolicy := admissionregistrationv1beta1.Fail
+			Expect(m.Options.FailurePolicy).To(Equal(&defaultPolicy))
+			Expect(m.Options.OperatorFingerprint).To(Equal("eirini-x"))
+			Expect(m.Options.KubeConfig).To(Equal(""))
+			Expect(m.Options.Logger).NotTo(Equal(nil))
+			Expect(m.Logger).NotTo(Equal(nil))
+			Expect(m.Options.FilterEiriniApps).To(Equal(true))
+
+		})
+		It("Setups correctly the operator structures", func() {
+			err := eiriniManager.OperatorSetup()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(eiriniManager.WebHookServer.Port).To(Equal(eiriniManager.Options.Port))
+			Expect(eiriniManager.WebHookServer.Host).To(Equal(&eiriniManager.Options.Host))
+		})
+	})
+
+	Context("if there is no cert secret yet", func() {
+		It("generates and persists the certificates on disk and in a secret", func() {
+			Expect(eiriniManager.Options.SetupCertificateName).To(Equal("eirini-x-setupcertificate"))
+			eiriniManager.Options.SetupCertificateName = "test-setupcert"
+
+			os.RemoveAll(fmt.Sprintf("/tmp/%s", eiriniManager.Options.SetupCertificateName))
+			defer os.RemoveAll(fmt.Sprintf("/tmp/%s", eiriniManager.Options.SetupCertificateName))
+
+			Expect(eiriniManager.WebHookServer).To(BeNil())
+			Expect(afero.Exists(afero.NewOsFs(), fmt.Sprintf("/tmp/%s/key.pem", eiriniManager.Options.SetupCertificateName))).To(BeFalse())
+
+			err := eiriniManager.OperatorSetup()
+			Expect(err).ToNot(HaveOccurred())
+
+			err = eiriniManager.RegisterExtensions()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(eiriniManager.WebHookServer.CertDir).To(Equal(fmt.Sprintf("/tmp/%s", eiriniManager.Options.SetupCertificateName)))
+			Expect(eiriniManager.WebHookServer.BootstrapOptions.MutatingWebhookConfigName).To(Equal("eirini-x-mutating-hook-default"))
+			Expect(eiriniManager.WebHookConfig.CertDir).To(Equal(eiriniManager.WebHookServer.CertDir))
+			Expect(eiriniManager.WebHookConfig.ConfigName).To(Equal(eiriniManager.WebHookServer.BootstrapOptions.MutatingWebhookConfigName))
+
+			Expect(afero.Exists(afero.NewOsFs(), fmt.Sprintf("/tmp/%s/key.pem", eiriniManager.Options.SetupCertificateName))).To(BeTrue())
+			Expect(generator.GenerateCertificateCallCount()).To(Equal(2)) // Generate CA and certificate
+			Expect(client.CreateCallCount()).To(Equal(2))                 // Persist secret and the webhook config
+		})
 	})
 
 	It("sets the operator namespace label", func() {
 		client.UpdateCalls(func(_ context.Context, object runtime.Object) error {
 			ns := object.(*unstructured.Unstructured)
 			labels := ns.GetLabels()
-			Expect(labels["eirini-x-ns"]).To(Equal(config.Namespace))
+			Expect(labels["eirini-x-ns"]).To(Equal(eiriniManager.Options.Namespace))
 
 			return nil
 		})
@@ -94,24 +130,7 @@ var _ = Describe("Extension Manager", func() {
 
 		err = eiriniManager.RegisterExtensions()
 		Expect(err).ToNot(HaveOccurred())
-	})
 
-	Context("if there is no cert secret yet", func() {
-		It("generates and persists the certificates on disk and in a secret", func() {
-			Expect(eiriniManager.Options.SetupCertificateName).To(Equal("eirini-x-setupcertificate"))
-
-			Expect(afero.Exists(config.Fs, "/tmp/eirini-x-setupcertificate/key.pem")).To(BeFalse())
-			err := eiriniManager.OperatorSetup()
-			Expect(err).ToNot(HaveOccurred())
-
-			err = eiriniManager.RegisterExtensions()
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(afero.Exists(config.Fs, "/tmp/eirini-x-setupcertificate/key.pem")).To(BeTrue())
-			Expect(generator.GenerateCertificateCallCount()).To(Equal(2)) // Generate CA and certificate
-			Expect(client.CreateCallCount()).To(Equal(2))                 // Persist secret and the webhook config
-
-		})
 	})
 
 	Context("if there is a persisted cert secret already", func() {
@@ -120,7 +139,7 @@ var _ = Describe("Extension Manager", func() {
 				Object: map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"name":      "eirinix",
-						"namespace": config.Namespace,
+						"namespace": eiriniManager.Options.Namespace,
 					},
 					"data": map[string]interface{}{
 						"certificate":    base64.StdEncoding.EncodeToString([]byte("the-cert")),
@@ -157,7 +176,7 @@ var _ = Describe("Extension Manager", func() {
 
 				wh := config.Webhooks[0]
 				Expect(wh.Name).To(Equal("0.eirini-x.org"))
-				Expect(*wh.ClientConfig.URL).To(Equal("https://foo.com:1234/0"))
+				Expect(*wh.ClientConfig.URL).To(Equal(fmt.Sprintf("https://%s:%d/0", eiriniManager.Options.Host, eiriniManager.Options.Port)))
 				Expect(wh.ClientConfig.CABundle).To(ContainSubstring("the-ca-cert"))
 				Expect(*wh.FailurePolicy).To(Equal(admissionregistrationv1beta1.Fail))
 				return nil
@@ -165,10 +184,9 @@ var _ = Describe("Extension Manager", func() {
 			err := eiriniManager.OperatorSetup()
 			Expect(err).ToNot(HaveOccurred())
 
-			eiriniManager.AddExtension(c.SimpleExtension())
+			eiriniManager.AddExtension(eirinixcatalog.SimpleExtension())
 			err = eiriniManager.RegisterExtensions()
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
-
 })
