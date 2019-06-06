@@ -1,0 +1,11 @@
+language: go
+go:
+  - "1.12"
+env:
+  - GO111MODULE=on
+before_install:
+  - GO111MODULE=off make tools
+script:
+  - go test -race -coverprofile=coverage.txt -covermode=atomic
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
