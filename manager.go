@@ -29,26 +29,60 @@ import (
 
 // DefaultExtensionManager represent an implementation of Manager
 type DefaultExtensionManager struct {
-	Extensions     []Extension
-	kubeConnection *rest.Config
-	KubeManager    manager.Manager
-	Logger         *zap.SugaredLogger
-	Context        context.Context
-	WebHookConfig  *WebhookConfig
-	WebHookServer  *webhook.Server
-	Credsgen       credsgen.Generator
+	// Extensions is the list of the Extensions that will be registered by the Manager
+	Extensions []Extension
+
+	// KubeManager is the kubernetes manager object which is setted up by the Manager
+	KubeManager manager.Manager
+
+	// Logger is the logger used internally and accessible to the Extensions
+	Logger *zap.SugaredLogger
+
+	// Context is the context structure used by internal components
+	Context context.Context
+
+	// WebhookConfig is the webhook configuration used to generate certificates
+	WebhookConfig *WebhookConfig
+
+	// WebhookServer is the webhook server where the Manager registers the Extensions to.
+	WebhookServer *webhook.Server
+
+	// Credsgen is the credential generator implementation used for generating certificates
+	Credsgen credsgen.Generator
+
+	// Options are the manager options
 	Options        ManagerOptions
+	kubeConnection *rest.Config
 }
 
 // ManagerOptions represent the Runtime manager options
 type ManagerOptions struct {
-	Namespace, Host      string
-	Port                 int32
-	KubeConfig           string
-	Logger               *zap.SugaredLogger
-	FailurePolicy        *admissionregistrationv1beta1.FailurePolicyType
-	FilterEiriniApps     bool
-	OperatorFingerprint  string
+
+	// Namespace is the namespace where the Manager is operating
+	Namespace string
+
+	// Host is the listening host address for the Manager
+	Host string
+
+	// Port is the listening port
+	Port int32
+
+	// KubeConfig is the kubeconfig path. Optional, omit for in-cluster connection
+	KubeConfig string
+
+	// Logger is the default logger. Optional, if omitted a new one will be created
+	Logger *zap.SugaredLogger
+
+	// FailurePolicy default failure policy for the webhook server.  Optional, defaults to fail
+	FailurePolicy *admissionregistrationv1beta1.FailurePolicyType
+
+	// FilterEiriniApps enables or disables Eirini apps filters.  Optional, defaults to true
+	FilterEiriniApps bool
+
+	// OperatorFingerprint is a unique string identifiying the Manager.  Optional, defaults to eirini-x
+	OperatorFingerprint string
+
+	// SetupCertificateName is the name of the generated certificates.  Optional, defaults uses OperatorFingerprint to generate a new one
 	SetupCertificateName string
 }
 
@@ -130,7 +164,7 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 
 	disableConfigInstaller := true
 	m.Context = ctxlog.NewManagerContext(m.Logger)
-	m.WebHookConfig = NewWebhookConfig(
+	m.WebhookConfig = NewWebhookConfig(
 		m.KubeManager.GetClient(),
 		cfg,
 		m.Credsgen,
@@ -139,22 +173,22 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 
 	hookServer, err := webhook.NewServer(m.Options.OperatorFingerprint, m.KubeManager, webhook.ServerOptions{
 		Port:                          m.Options.Port,
-		CertDir:                       m.WebHookConfig.CertDir,
+		CertDir:                       m.WebhookConfig.CertDir,
 		DisableWebhookConfigInstaller: &disableConfigInstaller,
 		BootstrapOptions: &webhook.BootstrapOptions{
-			MutatingWebhookConfigName: m.WebHookConfig.ConfigName,
+			MutatingWebhookConfigName: m.WebhookConfig.ConfigName,
 			Host:                      &m.Options.Host},
 	})
 	if err != nil {
 		return err
 	}
-	m.WebHookServer = hookServer
+	m.WebhookServer = hookServer
 
 	if err := m.setOperatorNamespaceLabel(); err != nil {
 		return errors.Wrap(err, "setting the operator namespace label")
 	}
 
-	err = m.WebHookConfig.setupCertificate(m.Context)
+	err = m.WebhookConfig.setupCertificate(m.Context)
 	if err != nil {
 		return errors.Wrap(err, "setting up the webhook server certificate")
 	}
@@ -205,12 +239,12 @@ func (m *DefaultExtensionManager) GetKubeConnection() (*rest.Config, error) {
 func (m *DefaultExtensionManager) RegisterExtensions() error {
 	webhooks := []*admission.Webhook{}
 	for k, e := range m.Extensions {
-		w := NewWebHook(e, m)
+		w := NewWebhook(e, m)
 		admissionHook, err := w.RegisterAdmissionWebHook(
-			WebHookOptions{
+			WebhookOptions{
 				ID:             strconv.Itoa(k),
 				Manager:        m.KubeManager,
-				WebHookServer:  m.WebHookServer,
+				WebhookServer:  m.WebhookServer,
 				ManagerOptions: m.Options,
 			})
 		if err != nil {
@@ -219,7 +253,7 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 		webhooks = append(webhooks, admissionHook)
 	}
 
-	if err := m.WebHookConfig.generateWebhookServerConfig(m.Context, webhooks); err != nil {
+	if err := m.WebhookConfig.generateWebhookServerConfig(m.Context, webhooks); err != nil {
 		return errors.Wrap(err, "generating the webhook server configuration")
 	}
 	return nil
@@ -250,7 +284,7 @@ func (m *DefaultExtensionManager) setup() error {
 	return nil
 }
 
-// Start starts the WebHook server infinite loop, and returns an error on failure
+// Start starts the Manager infinite loop, and returns an error on failure
 func (m *DefaultExtensionManager) Start() error {
 	defer m.Logger.Sync()
 

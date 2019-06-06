@@ -20,19 +20,24 @@ import (
 
 type setReferenceFunc func(owner, object metav1.Object, scheme *runtime.Scheme) error
 
-// DefaultMutatingWebHook is the implementation of the WebHook generated out of the Eirini Extension
-type DefaultMutatingWebHook struct {
+// DefaultMutatingWebhook is the implementation of the Webhook generated out of the Eirini Extension
+type DefaultMutatingWebhook struct {
 	decoder types.Decoder
 	client  client.Client
-	//WebHookHandle WebHookHandler
-	EiriniExtension        Extension
+
+	// EiriniExtension is the Eirini extension associated with the webhook
+	EiriniExtension Extension
+
+	// EiriniExtensionManager is the Manager which will be injected into the Handle.
 	EiriniExtensionManager Manager
-	FilterEiriniApps       bool
-	setReference           setReferenceFunc
+
+	// FilterEiriniApps indicates if the webhook will filter Eirini apps or not.
+	FilterEiriniApps bool
+	setReference     setReferenceFunc
 }
 
 // GetPod retrieves a pod from a types.Request
-func (w *DefaultMutatingWebHook) GetPod(req types.Request) (*corev1.Pod, error) {
+func (w *DefaultMutatingWebhook) GetPod(req types.Request) (*corev1.Pod, error) {
 	pod := &corev1.Pod{}
 	if w.decoder == nil {
 		return nil, errors.New("No decoder injected")
@@ -41,21 +46,21 @@ func (w *DefaultMutatingWebHook) GetPod(req types.Request) (*corev1.Pod, error) 
 	return pod, err
 }
 
-// WebHookOptions are the options required to register a WebHook to the WebHook server
-type WebHookOptions struct {
+// WebhookOptions are the options required to register a WebHook to the WebHook server
+type WebhookOptions struct {
 	ID             string // Webhook path will be generated out of that
 	MatchLabels    map[string]string
 	Manager        manager.Manager
-	WebHookServer  *webhook.Server
+	WebhookServer  *webhook.Server
 	ManagerOptions ManagerOptions
 }
 
-// NewWebHook returns a MutatingWebHook out of an Eirini Extension
-func NewWebHook(e Extension, m Manager) MutatingWebHook {
-	return &DefaultMutatingWebHook{EiriniExtensionManager: m, EiriniExtension: e, setReference: controllerutil.SetControllerReference}
+// NewWebhook returns a MutatingWebhook out of an Eirini Extension
+func NewWebhook(e Extension, m Manager) MutatingWebhook {
+	return &DefaultMutatingWebhook{EiriniExtensionManager: m, EiriniExtension: e, setReference: controllerutil.SetControllerReference}
 }
 
-func (w *DefaultMutatingWebHook) getNamespaceSelector(opts WebHookOptions) *metav1.LabelSelector {
+func (w *DefaultMutatingWebhook) getNamespaceSelector(opts WebhookOptions) *metav1.LabelSelector {
 	if len(opts.MatchLabels) == 0 {
 		return &metav1.LabelSelector{
 			MatchLabels: map[string]string{
@@ -67,12 +72,12 @@ func (w *DefaultMutatingWebHook) getNamespaceSelector(opts WebHookOptions) *meta
 }
 
 // RegisterAdmissionWebHook registers the Mutating WebHook to the WebHook Server and returns the generated Admission Webhook
-func (w *DefaultMutatingWebHook) RegisterAdmissionWebHook(opts WebHookOptions) (*admission.Webhook, error) {
+func (w *DefaultMutatingWebhook) RegisterAdmissionWebHook(opts WebhookOptions) (*admission.Webhook, error) {
 	if opts.ManagerOptions.FailurePolicy == nil {
 		return nil, errors.New("No failure policy set")
 	}
 	w.FilterEiriniApps = opts.ManagerOptions.FilterEiriniApps
-	mutatingWebhook, err := builder.NewWebhookBuilder().
+	MutatingWebhook, err := builder.NewWebhookBuilder().
 		Path(fmt.Sprintf("/%s", opts.ID)).
 		Mutating().
 		NamespaceSelector(w.getNamespaceSelector(opts)).
@@ -86,27 +91,27 @@ func (w *DefaultMutatingWebHook) RegisterAdmissionWebHook(opts WebHookOptions) (
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't build a new webhook")
 	}
-	err = opts.WebHookServer.Register(mutatingWebhook)
+	err = opts.WebhookServer.Register(MutatingWebhook)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to register the hook with the admission server")
 	}
-	return mutatingWebhook, nil
+	return MutatingWebhook, nil
 }
 
 // InjectClient injects the client.
-func (w *DefaultMutatingWebHook) InjectClient(c client.Client) error {
+func (w *DefaultMutatingWebhook) InjectClient(c client.Client) error {
 	w.client = c
 	return nil
 }
 
 // InjectDecoder injects the decoder.
-func (w *DefaultMutatingWebHook) InjectDecoder(d types.Decoder) error {
+func (w *DefaultMutatingWebhook) InjectDecoder(d types.Decoder) error {
 	w.decoder = d
 	return nil
 }
 
 // Handle delegates the Handle function to the Eirini Extension
-func (w *DefaultMutatingWebHook) Handle(ctx context.Context, req types.Request) types.Response {
+func (w *DefaultMutatingWebhook) Handle(ctx context.Context, req types.Request) types.Response {
 
 	pod, _ := w.GetPod(req)
 

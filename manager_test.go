@@ -86,8 +86,8 @@ var _ = Describe("Extension Manager", func() {
 		It("Setups correctly the operator structures", func() {
 			err := eiriniManager.OperatorSetup()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(eiriniManager.WebHookServer.Port).To(Equal(eiriniManager.Options.Port))
-			Expect(eiriniManager.WebHookServer.Host).To(Equal(&eiriniManager.Options.Host))
+			Expect(eiriniManager.WebhookServer.Port).To(Equal(eiriniManager.Options.Port))
+			Expect(eiriniManager.WebhookServer.Host).To(Equal(&eiriniManager.Options.Host))
 		})
 
 		It("called from the interface fails to start with no kube connection", func() {
@@ -106,7 +106,7 @@ var _ = Describe("Extension Manager", func() {
 			os.RemoveAll(fmt.Sprintf("/tmp/%s", eiriniManager.Options.SetupCertificateName))
 			defer os.RemoveAll(fmt.Sprintf("/tmp/%s", eiriniManager.Options.SetupCertificateName))
 
-			Expect(eiriniManager.WebHookServer).To(BeNil())
+			Expect(eiriniManager.WebhookServer).To(BeNil())
 			Expect(afero.Exists(afero.NewOsFs(), fmt.Sprintf("/tmp/%s/key.pem", eiriniManager.Options.SetupCertificateName))).To(BeFalse())
 
 			err := eiriniManager.OperatorSetup()
@@ -115,10 +115,10 @@ var _ = Describe("Extension Manager", func() {
 			err = eiriniManager.RegisterExtensions()
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(eiriniManager.WebHookServer.CertDir).To(Equal(fmt.Sprintf("/tmp/%s", eiriniManager.Options.SetupCertificateName)))
-			Expect(eiriniManager.WebHookServer.BootstrapOptions.MutatingWebhookConfigName).To(Equal("eirini-x-mutating-hook-default"))
-			Expect(eiriniManager.WebHookConfig.CertDir).To(Equal(eiriniManager.WebHookServer.CertDir))
-			Expect(eiriniManager.WebHookConfig.ConfigName).To(Equal(eiriniManager.WebHookServer.BootstrapOptions.MutatingWebhookConfigName))
+			Expect(eiriniManager.WebhookServer.CertDir).To(Equal(fmt.Sprintf("/tmp/%s", eiriniManager.Options.SetupCertificateName)))
+			Expect(eiriniManager.WebhookServer.BootstrapOptions.MutatingWebhookConfigName).To(Equal("eirini-x-mutating-hook-default"))
+			Expect(eiriniManager.WebhookConfig.CertDir).To(Equal(eiriniManager.WebhookServer.CertDir))
+			Expect(eiriniManager.WebhookConfig.ConfigName).To(Equal(eiriniManager.WebhookServer.BootstrapOptions.MutatingWebhookConfigName))
 
 			Expect(afero.Exists(afero.NewOsFs(), fmt.Sprintf("/tmp/%s/key.pem", eiriniManager.Options.SetupCertificateName))).To(BeTrue())
 			Expect(generator.GenerateCertificateCallCount()).To(Equal(2)) // Generate CA and certificate

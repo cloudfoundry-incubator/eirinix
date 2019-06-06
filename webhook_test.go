@@ -12,18 +12,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
-var _ = Describe("WebHook implementation", func() {
+var _ = Describe("Webhook implementation", func() {
 	c := catalog.NewCatalog()
 	m := c.SimpleManager()
-	w := NewWebHook(c.SimpleExtension(), m)
+	w := NewWebhook(c.SimpleExtension(), m)
 
 	Context("With a fake extension", func() {
 		It("It errors without a manager", func() {
-			_, err := w.RegisterAdmissionWebHook(WebHookOptions{ID: "volume", ManagerOptions: ManagerOptions{Namespace: "eirini", OperatorFingerprint: "eirini-x"}})
+			_, err := w.RegisterAdmissionWebHook(WebhookOptions{ID: "volume", ManagerOptions: ManagerOptions{Namespace: "eirini", OperatorFingerprint: "eirini-x"}})
 			Expect(err.Error()).To(Equal("No failure policy set"))
 			failurePolicy := admissionregistrationv1beta1.Fail
 
-			_, err = w.RegisterAdmissionWebHook(WebHookOptions{ID: "volume", ManagerOptions: ManagerOptions{FailurePolicy: &failurePolicy, Namespace: "eirini", OperatorFingerprint: "eirini-x"}})
+			_, err = w.RegisterAdmissionWebHook(WebhookOptions{ID: "volume", ManagerOptions: ManagerOptions{FailurePolicy: &failurePolicy, Namespace: "eirini", OperatorFingerprint: "eirini-x"}})
 			Expect(err.Error()).To(Equal("couldn't build a new webhook: manager should be set using WithManager"))
 		})
 

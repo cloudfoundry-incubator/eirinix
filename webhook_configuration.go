@@ -40,7 +40,7 @@ type WebhookConfig struct {
 	generator            credsgen.Generator
 }
 
-// NewWebhookConfig returns a new WebhookConfi
+// NewWebhookConfig returns a new WebhookConfig
 func NewWebhookConfig(c client.Client, config *config.Config, generator credsgen.Generator, configName string, setupCertificateName string) *WebhookConfig {
 	return &WebhookConfig{
 		ConfigName:           configName,
