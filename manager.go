@@ -111,7 +111,10 @@ func NewManager(opts ManagerOptions) Manager {
 		failurePolicy := admissionregistrationv1beta1.Fail
 		opts.FailurePolicy = &failurePolicy
 	}
-	opts.OperatorFingerprint = "eirini-x"
+
+	if len(opts.OperatorFingerprint) == 0 {
+		opts.OperatorFingerprint = "eirini-x"
+	}
 
 	if len(opts.SetupCertificateName) == 0 {
 		opts.SetupCertificateName = opts.getSetupCertificateName()
