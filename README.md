@@ -10,7 +10,7 @@ Extensions Library for Cloud Foundry Eirini
 
 
 ### Install
-    go get -u https://github.com/SUSE/eirinix
+    go get -u github.com/SUSE/eirinix
 
 ### Write your extension
 
@@ -40,7 +40,7 @@ func (e *MyExtension) Handle(context.Context, eirinix.Manager, *corev1.Pod, type
 
 ```golang
 
-import "https://github.com/SUSE/eirinix"
+import "github.com/SUSE/eirinix"
 
 func main() {
     x := eirinix.NewManager(
