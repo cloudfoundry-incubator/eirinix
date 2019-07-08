@@ -120,7 +120,8 @@ func (w *DefaultMutatingWebhook) Handle(ctx context.Context, req types.Request) 
 
 	pod, _ := w.GetPod(req)
 
-	if !w.FilterEiriniApps {
+	// Don't filter the pod if We are not handling pods or filtering is disabled
+	if pod == nil || !w.FilterEiriniApps {
 		return w.EiriniExtension.Handle(ctx, w.EiriniExtensionManager, pod, req)
 	}
 
@@ -132,5 +133,4 @@ func (w *DefaultMutatingWebhook) Handle(ctx context.Context, req types.Request) 
 	}
 
 	return admission.PatchResponse(pod, podCopy)
-
 }
