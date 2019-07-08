@@ -76,7 +76,12 @@ func (w *DefaultMutatingWebhook) RegisterAdmissionWebHook(opts WebhookOptions) (
 	if opts.ManagerOptions.FailurePolicy == nil {
 		return nil, errors.New("No failure policy set")
 	}
-	w.FilterEiriniApps = opts.ManagerOptions.FilterEiriniApps
+	if opts.ManagerOptions.FilterEiriniApps != nil {
+		w.FilterEiriniApps = *opts.ManagerOptions.FilterEiriniApps
+	} else {
+		w.FilterEiriniApps = true
+	}
+
 	MutatingWebhook, err := builder.NewWebhookBuilder().
 		Path(fmt.Sprintf("/%s", opts.ID)).
 		Mutating().
@@ -115,7 +120,8 @@ func (w *DefaultMutatingWebhook) Handle(ctx context.Context, req types.Request) 
 
 	pod, _ := w.GetPod(req)
 
-	if !w.FilterEiriniApps {
+	// Don't filter the pod if We are not handling pods or filtering is disabled
+	if pod == nil || !w.FilterEiriniApps {
 		return w.EiriniExtension.Handle(ctx, w.EiriniExtensionManager, pod, req)
 	}
 
@@ -127,5 +133,4 @@ func (w *DefaultMutatingWebhook) Handle(ctx context.Context, req types.Request) 
 	}
 
 	return admission.PatchResponse(pod, podCopy)
-
 }

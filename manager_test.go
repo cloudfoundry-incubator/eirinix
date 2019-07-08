@@ -78,7 +78,7 @@ var _ = Describe("Extension Manager", func() {
 			Expect(m.Options.KubeConfig).To(Equal(""))
 			Expect(m.Options.Logger).NotTo(Equal(nil))
 			Expect(m.Logger).NotTo(Equal(nil))
-			Expect(m.Options.FilterEiriniApps).To(Equal(true))
+			Expect(*m.Options.FilterEiriniApps).To(BeTrue())
 
 			Expect(Manager.GetLogger()).ToNot(BeNil())
 			Expect(Manager.ListExtensions()).To(BeEmpty())
