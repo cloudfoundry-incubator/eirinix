@@ -76,7 +76,12 @@ func (w *DefaultMutatingWebhook) RegisterAdmissionWebHook(opts WebhookOptions) (
 	if opts.ManagerOptions.FailurePolicy == nil {
 		return nil, errors.New("No failure policy set")
 	}
-	w.FilterEiriniApps = opts.ManagerOptions.FilterEiriniApps
+	if opts.ManagerOptions.FilterEiriniApps != nil {
+		w.FilterEiriniApps = *opts.ManagerOptions.FilterEiriniApps
+	} else {
+		w.FilterEiriniApps = true
+	}
+
 	MutatingWebhook, err := builder.NewWebhookBuilder().
 		Path(fmt.Sprintf("/%s", opts.ID)).
 		Mutating().

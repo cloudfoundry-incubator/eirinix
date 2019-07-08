@@ -77,7 +77,7 @@ type ManagerOptions struct {
 	FailurePolicy *admissionregistrationv1beta1.FailurePolicyType
 
 	// FilterEiriniApps enables or disables Eirini apps filters.  Optional, defaults to true
-	FilterEiriniApps bool
+	FilterEiriniApps *bool
 
 	// OperatorFingerprint is a unique string identifiying the Manager.  Optional, defaults to eirini-x
 	OperatorFingerprint string
@@ -120,7 +120,11 @@ func NewManager(opts ManagerOptions) Manager {
 		opts.SetupCertificateName = opts.getSetupCertificateName()
 	}
 
-	opts.FilterEiriniApps = true
+	if opts.FilterEiriniApps == nil {
+		filterEiriniApps := true
+		opts.FilterEiriniApps = &filterEiriniApps
+	}
+
 	return &DefaultExtensionManager{Options: opts, Logger: opts.Logger}
 }
 
