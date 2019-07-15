@@ -22,6 +22,8 @@ import (
 
 	cfakes "github.com/SUSE/eirinix/testing/fakes"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen"
 	gfakes "code.cloudfoundry.org/cf-operator/pkg/credsgen/fakes"
@@ -225,5 +227,36 @@ var _ = Describe("Extension Manager", func() {
 			Expect(string(sw.Handled[0].Type)).To(Equal("test"))
 		})
 
+		It("Generates the watcher correctly if filtering eirini apps", func() {
+			Expect(*eiriniManager.Options.FilterEiriniApps).To(Equal(true))
+			fakeCorev1 := &cfakes.FakeCoreV1Interface{}
+			fakePod := &cfakes.FakePodInterface{}
+			opts := &metav1.ListOptions{}
+			fakePod.WatchCalls(func(m metav1.ListOptions) (watch.Interface, error) {
+				opts = &m
+				return nil, nil
+			})
+			fakeCorev1.PodsCalls(func(s string) corev1client.PodInterface { return fakePod })
+			_, err := eiriniManager.GenWatcher(fakeCorev1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(opts.LabelSelector).To(Equal("source_type=APP"))
+		})
+
+		It("Generates the watcher correctly if not filtering eirini apps", func() {
+			Expect(*eiriniManager.Options.FilterEiriniApps).To(Equal(true))
+			filtering := false
+			eiriniManager.Options.FilterEiriniApps = &filtering
+			fakeCorev1 := &cfakes.FakeCoreV1Interface{}
+			fakePod := &cfakes.FakePodInterface{}
+			opts := &metav1.ListOptions{}
+			fakePod.WatchCalls(func(m metav1.ListOptions) (watch.Interface, error) {
+				opts = &m
+				return nil, nil
+			})
+			fakeCorev1.PodsCalls(func(s string) corev1client.PodInterface { return fakePod })
+			_, err := eiriniManager.GenWatcher(fakeCorev1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(opts.LabelSelector).To(Equal(""))
+		})
 	})
 })
