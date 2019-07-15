@@ -16,10 +16,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	machinerytypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
@@ -31,6 +34,9 @@ import (
 type DefaultExtensionManager struct {
 	// Extensions is the list of the Extensions that will be registered by the Manager
 	Extensions []Extension
+
+	// Watchers is the list of Eirini watchers handlers
+	Watchers []Watcher
 
 	// KubeManager is the kubernetes manager object which is setted up by the Manager
 	KubeManager manager.Manager
@@ -136,6 +142,34 @@ func (m *DefaultExtensionManager) AddExtension(e Extension) {
 // ListExtensions returns the list of the Extensions added to the Manager
 func (m *DefaultExtensionManager) ListExtensions() []Extension {
 	return m.Extensions
+}
+
+// AddWatcher adds an Erini watcher Extension to the manager
+func (m *DefaultExtensionManager) AddWatcher(w Watcher) {
+	m.Watchers = append(m.Watchers, w)
+}
+
+// ListWatchers returns the list of the Extensions added to the Manager
+func (m *DefaultExtensionManager) ListWatchers() []Watcher {
+	return m.Watchers
+}
+
+func (m *DefaultExtensionManager) GenWatcher() (watch.Interface, error) {
+
+	client, err := corev1client.NewForConfig(m.kubeConnection)
+	if err != nil {
+		return nil, errors.Wrap(err, "Could not get kube client")
+	}
+
+	podInterface := client.Pods(m.Options.Namespace)
+	opts := metav1.ListOptions{Watch: true}
+
+	if m.Options.FilterEiriniApps != nil && *m.Options.FilterEiriniApps {
+		opts.LabelSelector = "source_type=APP"
+	}
+
+	watcher, err := podInterface.Watch(opts)
+	return watcher, err
 }
 
 // GetLogger returns the Manager injected logger
@@ -289,6 +323,30 @@ func (m *DefaultExtensionManager) setup() error {
 	}
 
 	return nil
+}
+
+func (m *DefaultExtensionManager) HandleEvent(e watch.Event) {
+	for _, w := range m.Watchers {
+		w.Handle(m, e)
+	}
+}
+
+// Watch starts the Watchers Manager infinite loop, and returns an error on failure
+func (m *DefaultExtensionManager) Watch() error {
+	defer m.Logger.Sync()
+
+	watcher, err := m.GenWatcher()
+	if err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case e := <-watcher.ResultChan():
+			m.HandleEvent(e)
+		}
+	}
+
 }
 
 // Start starts the Manager infinite loop, and returns an error on failure

@@ -8,6 +8,7 @@ import (
 
 	operator_testing "code.cloudfoundry.org/cf-operator/testing"
 	eirinix "github.com/SUSE/eirinix"
+	"k8s.io/apimachinery/pkg/watch"
 )
 
 // NewCatalog returns a Catalog, our helper for test cases
@@ -39,4 +40,17 @@ func (c *Catalog) SimpleManager() eirinix.Manager {
 			Host:      "127.0.0.1",
 			Port:      90,
 		})
+}
+
+type SimpleWatch struct {
+	Handled []watch.Event
+}
+
+func (sw *SimpleWatch) Handle(m eirinix.Manager, e watch.Event) {
+	sw.Handled = append(sw.Handled, e)
+}
+
+// SimpleWatcher returns a dummy watcher
+func (c *Catalog) SimpleWatcher() eirinix.Watcher {
+	return &SimpleWatch{}
 }

@@ -5,6 +5,7 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/watch"
 
 	"k8s.io/client-go/rest"
 
@@ -27,6 +28,14 @@ type Extension interface {
 	//
 	// The manager will attempt to decode a pod from the request if possible and passes it to the Manager.
 	Handle(context.Context, Manager, *corev1.Pod, types.Request) types.Response
+}
+
+// Watcher is the Eirini Watcher Extension interface.
+//
+// An Eirini Watcher must implement a Handle method, which is called with the event that occurred in the
+// namespace.
+type Watcher interface {
+	Handle(Manager, watch.Event)
 }
 
 // MutatingWebhook is the interface of the generated webhook
@@ -70,4 +79,10 @@ type Manager interface {
 	// GetLogger returns the logger of the application. It can be passed an already existing one
 	// by using NewManager()
 	GetLogger() *zap.SugaredLogger
+
+	// Watch starts the main loop for the registered watchers
+	Watch() error
+
+	// AddWatcher register a watcher to EiriniX
+	AddWatcher(w Watcher)
 }

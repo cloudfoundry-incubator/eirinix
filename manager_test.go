@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	cfakes "github.com/SUSE/eirinix/testing/fakes"
@@ -200,5 +201,29 @@ var _ = Describe("Extension Manager", func() {
 
 			Expect(Manager.ListExtensions()).ToNot(BeEmpty())
 		})
+	})
+
+	Context("Watchers", func() {
+		w := eirinixcatalog.SimpleWatcher()
+		BeforeEach(func() {
+			w = eirinixcatalog.SimpleWatcher()
+		})
+		It("Registers new watchers correctly", func() {
+			eiriniManager.AddWatcher(w)
+			Expect(len(eiriniManager.ListWatchers())).To(Equal(1))
+			eiriniManager.AddWatcher(w)
+			Expect(len(eiriniManager.ListWatchers())).To(Equal(2))
+		})
+
+		It("Handles events correctly", func() {
+			eiriniManager.AddWatcher(w)
+			eiriniManager.HandleEvent(watch.Event{Type: watch.EventType("test")})
+			sw, ok := w.(*catalog.SimpleWatch)
+			Expect(ok).To(Equal(true))
+
+			Expect(len(sw.Handled)).To(Equal(1))
+			Expect(string(sw.Handled[0].Type)).To(Equal("test"))
+		})
+
 	})
 })
