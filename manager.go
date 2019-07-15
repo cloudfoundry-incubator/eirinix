@@ -16,10 +16,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	machinerytypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
@@ -31,6 +34,9 @@ import (
 type DefaultExtensionManager struct {
 	// Extensions is the list of the Extensions that will be registered by the Manager
 	Extensions []Extension
+
+	// Watchers is the list of Eirini watchers handlers
+	Watchers []Watcher
 
 	// KubeManager is the kubernetes manager object which is setted up by the Manager
 	KubeManager manager.Manager
@@ -51,8 +57,10 @@ type DefaultExtensionManager struct {
 	Credsgen credsgen.Generator
 
 	// Options are the manager options
-	Options        ManagerOptions
+	Options ManagerOptions
+
 	kubeConnection *rest.Config
+	kubeClient     corev1client.CoreV1Interface
 }
 
 // ManagerOptions represent the Runtime manager options
@@ -136,6 +144,48 @@ func (m *DefaultExtensionManager) AddExtension(e Extension) {
 // ListExtensions returns the list of the Extensions added to the Manager
 func (m *DefaultExtensionManager) ListExtensions() []Extension {
 	return m.Extensions
+}
+
+// AddWatcher adds an Erini watcher Extension to the manager
+func (m *DefaultExtensionManager) AddWatcher(w Watcher) {
+	m.Watchers = append(m.Watchers, w)
+}
+
+// ListWatchers returns the list of the Extensions added to the Manager
+func (m *DefaultExtensionManager) ListWatchers() []Watcher {
+	return m.Watchers
+}
+
+// GetKubeClient returns a kubernetes Corev1 client interface from the rest config used.
+func (m *DefaultExtensionManager) GetKubeClient() (corev1client.CoreV1Interface, error) {
+	if m.kubeClient == nil {
+		if m.kubeConnection == nil {
+			if _, err := m.GetKubeConnection(); err != nil {
+				return nil, err
+			}
+		}
+		client, err := corev1client.NewForConfig(m.kubeConnection)
+		if err != nil {
+			return nil, errors.Wrap(err, "Could not get kube client")
+		}
+		m.kubeClient = client
+	}
+
+	return m.kubeClient, nil
+}
+
+// GenWatcher generates a watcher from a corev1client interface
+func (m *DefaultExtensionManager) GenWatcher(client corev1client.CoreV1Interface) (watch.Interface, error) {
+
+	podInterface := client.Pods(m.Options.Namespace)
+	opts := metav1.ListOptions{Watch: true}
+
+	if m.Options.FilterEiriniApps != nil && *m.Options.FilterEiriniApps {
+		opts.LabelSelector = "source_type=APP"
+	}
+
+	watcher, err := podInterface.Watch(opts)
+	return watcher, err
 }
 
 // GetLogger returns the Manager injected logger
@@ -242,6 +292,16 @@ func (m *DefaultExtensionManager) GetKubeConnection() (*rest.Config, error) {
 	return m.kubeConnection, nil
 }
 
+// SetKubeConnection sets a rest config from a given one
+func (m *DefaultExtensionManager) SetKubeConnection(c *rest.Config) {
+	m.kubeConnection = c
+}
+
+// SetKubeClient sets a kube client corev1 from a given one
+func (m *DefaultExtensionManager) SetKubeClient(c corev1client.CoreV1Interface) {
+	m.kubeClient = c
+}
+
 // RegisterExtensions it generates and register webhooks from the Extensions loaded in the Manager
 func (m *DefaultExtensionManager) RegisterExtensions() error {
 	webhooks := []*admission.Webhook{}
@@ -289,6 +349,54 @@ func (m *DefaultExtensionManager) setup() error {
 	}
 
 	return nil
+}
+
+// HandleEvent handles a watcher event.
+// It propagates the event to all the registered watchers.
+func (m *DefaultExtensionManager) HandleEvent(e watch.Event) {
+	for _, w := range m.Watchers {
+		w.Handle(m, e)
+	}
+}
+
+// ReadWatcherEvent tries to read events from the watcher channel and return error if the channel
+// is closed. It should be run in a loop.
+func (m *DefaultExtensionManager) ReadWatcherEvent(w watch.Interface) error {
+	resultChannel := w.ResultChan()
+
+	select {
+	case e, ok := <-resultChannel:
+		if !ok {
+			return errors.New("Watcher died")
+		}
+		m.HandleEvent(e)
+	default:
+		return nil
+	}
+
+	return nil
+}
+
+// Watch starts the Watchers Manager infinite loop, and returns an error on failure
+func (m *DefaultExtensionManager) Watch() error {
+	defer m.Logger.Sync()
+
+	client, err := m.GetKubeClient()
+	if err != nil {
+		return err
+	}
+	watcher, err := m.GenWatcher(client)
+	if err != nil {
+		return err
+	}
+
+	for {
+		if err := m.ReadWatcherEvent(watcher); err != nil {
+			return err
+		}
+
+	}
+
 }
 
 // Start starts the Manager infinite loop, and returns an error on failure

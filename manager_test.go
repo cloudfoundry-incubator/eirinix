@@ -17,10 +17,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 
 	cfakes "github.com/SUSE/eirinix/testing/fakes"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen"
 	gfakes "code.cloudfoundry.org/cf-operator/pkg/credsgen/fakes"
@@ -199,6 +203,88 @@ var _ = Describe("Extension Manager", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(Manager.ListExtensions()).ToNot(BeEmpty())
+		})
+	})
+
+	Context("Watchers", func() {
+		w := eirinixcatalog.SimpleWatcher()
+		BeforeEach(func() {
+			w = eirinixcatalog.SimpleWatcher()
+		})
+		It("Registers new watchers correctly", func() {
+			eiriniManager.AddWatcher(w)
+			Expect(len(eiriniManager.ListWatchers())).To(Equal(1))
+			eiriniManager.AddWatcher(w)
+			Expect(len(eiriniManager.ListWatchers())).To(Equal(2))
+		})
+
+		It("Handles events correctly", func() {
+			eiriniManager.AddWatcher(w)
+			eiriniManager.HandleEvent(watch.Event{Type: watch.EventType("test")})
+			sw, ok := w.(*catalog.SimpleWatch)
+			Expect(ok).To(Equal(true))
+
+			Expect(len(sw.Handled)).To(Equal(1))
+			Expect(string(sw.Handled[0].Type)).To(Equal("test"))
+
+			eiriniManager.SetKubeConnection(&rest.Config{})
+			w := &cfakes.FakeInterface{}
+
+			err := eiriniManager.ReadWatcherEvent(w)
+			Expect(err).ToNot(HaveOccurred())
+
+			c := make(chan watch.Event)
+
+			w.ResultChanCalls(func() <-chan watch.Event {
+				return c
+			})
+			close(c)
+
+			err = eiriniManager.ReadWatcherEvent(w)
+			Expect(err).To(HaveOccurred())
+
+			c = make(chan watch.Event, 1) // Make it a buffered to avoid to be blocking when we write to it
+			w.ResultChanCalls(func() <-chan watch.Event {
+				c <- watch.Event{Type: watch.EventType("1")}
+				return c
+			})
+
+			err = eiriniManager.ReadWatcherEvent(w)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(string(sw.Handled[1].Type)).To(Equal("1"))
+		})
+
+		It("Generates the watcher correctly if filtering eirini apps", func() {
+			Expect(*eiriniManager.Options.FilterEiriniApps).To(Equal(true))
+			fakeCorev1 := &cfakes.FakeCoreV1Interface{}
+			fakePod := &cfakes.FakePodInterface{}
+			opts := &metav1.ListOptions{}
+			fakePod.WatchCalls(func(m metav1.ListOptions) (watch.Interface, error) {
+				opts = &m
+				return nil, nil
+			})
+			fakeCorev1.PodsCalls(func(s string) corev1client.PodInterface { return fakePod })
+			_, err := eiriniManager.GenWatcher(fakeCorev1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(opts.LabelSelector).To(Equal("source_type=APP"))
+		})
+
+		It("Generates the watcher correctly if not filtering eirini apps", func() {
+			Expect(*eiriniManager.Options.FilterEiriniApps).To(Equal(true))
+			filtering := false
+			eiriniManager.Options.FilterEiriniApps = &filtering
+			fakeCorev1 := &cfakes.FakeCoreV1Interface{}
+			fakePod := &cfakes.FakePodInterface{}
+			opts := &metav1.ListOptions{}
+			fakePod.WatchCalls(func(m metav1.ListOptions) (watch.Interface, error) {
+				opts = &m
+				return nil, nil
+			})
+			fakeCorev1.PodsCalls(func(s string) corev1client.PodInterface { return fakePod })
+			_, err := eiriniManager.GenWatcher(fakeCorev1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(opts.LabelSelector).To(Equal(""))
 		})
 	})
 })
