@@ -57,7 +57,8 @@ type DefaultExtensionManager struct {
 	Credsgen credsgen.Generator
 
 	// Options are the manager options
-	Options        ManagerOptions
+	Options ManagerOptions
+
 	kubeConnection *rest.Config
 	kubeClient     corev1client.CoreV1Interface
 }
@@ -158,6 +159,11 @@ func (m *DefaultExtensionManager) ListWatchers() []Watcher {
 // GetKubeClient returns a kubernetes Corev1 client interface from the rest config used.
 func (m *DefaultExtensionManager) GetKubeClient() (corev1client.CoreV1Interface, error) {
 	if m.kubeClient == nil {
+		if m.kubeConnection == nil {
+			if _, err := m.GetKubeConnection(); err != nil {
+				return nil, err
+			}
+		}
 		client, err := corev1client.NewForConfig(m.kubeConnection)
 		if err != nil {
 			return nil, errors.Wrap(err, "Could not get kube client")
@@ -168,6 +174,7 @@ func (m *DefaultExtensionManager) GetKubeClient() (corev1client.CoreV1Interface,
 	return m.kubeClient, nil
 }
 
+// GenWatcher generates a watcher from a corev1client interface
 func (m *DefaultExtensionManager) GenWatcher(client corev1client.CoreV1Interface) (watch.Interface, error) {
 
 	podInterface := client.Pods(m.Options.Namespace)
@@ -285,6 +292,16 @@ func (m *DefaultExtensionManager) GetKubeConnection() (*rest.Config, error) {
 	return m.kubeConnection, nil
 }
 
+// SetKubeConnection sets a rest config from a given one
+func (m *DefaultExtensionManager) SetKubeConnection(c *rest.Config) {
+	m.kubeConnection = c
+}
+
+// SetKubeClient sets a kube client corev1 from a given one
+func (m *DefaultExtensionManager) SetKubeClient(c corev1client.CoreV1Interface) {
+	m.kubeClient = c
+}
+
 // RegisterExtensions it generates and register webhooks from the Extensions loaded in the Manager
 func (m *DefaultExtensionManager) RegisterExtensions() error {
 	webhooks := []*admission.Webhook{}
@@ -334,10 +351,30 @@ func (m *DefaultExtensionManager) setup() error {
 	return nil
 }
 
+// HandleEvent handles a watcher event.
+// It propagates the event to all the registered watchers.
 func (m *DefaultExtensionManager) HandleEvent(e watch.Event) {
 	for _, w := range m.Watchers {
 		w.Handle(m, e)
 	}
+}
+
+// ReadWatcherEvent tries to read events from the watcher channel and return error if the channel
+// is closed. It should be run in a loop.
+func (m *DefaultExtensionManager) ReadWatcherEvent(w watch.Interface) error {
+	resultChannel := w.ResultChan()
+
+	select {
+	case e, ok := <-resultChannel:
+		if !ok {
+			return errors.New("Watcher died")
+		}
+		m.HandleEvent(e)
+	default:
+		return nil
+	}
+
+	return nil
 }
 
 // Watch starts the Watchers Manager infinite loop, and returns an error on failure
@@ -354,10 +391,10 @@ func (m *DefaultExtensionManager) Watch() error {
 	}
 
 	for {
-		select {
-		case e := <-watcher.ResultChan():
-			m.HandleEvent(e)
+		if err := m.ReadWatcherEvent(watcher); err != nil {
+			return err
 		}
+
 	}
 
 }
