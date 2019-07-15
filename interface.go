@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -75,6 +76,11 @@ type Manager interface {
 	//
 	// Returns the rest config used to establish a connection to the kubernetes cluster.
 	GetKubeConnection() (*rest.Config, error)
+
+	// GetKubeClient sets up a kube client if not already present
+	//
+	// Returns the kubernetes interface.
+	GetKubeClient() (corev1client.CoreV1Interface, error)
 
 	// GetLogger returns the logger of the application. It can be passed an already existing one
 	// by using NewManager()

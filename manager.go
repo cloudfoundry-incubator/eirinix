@@ -59,6 +59,7 @@ type DefaultExtensionManager struct {
 	// Options are the manager options
 	Options        ManagerOptions
 	kubeConnection *rest.Config
+	kubeClient     corev1client.CoreV1Interface
 }
 
 // ManagerOptions represent the Runtime manager options
@@ -154,12 +155,20 @@ func (m *DefaultExtensionManager) ListWatchers() []Watcher {
 	return m.Watchers
 }
 
-func (m *DefaultExtensionManager) GenWatcher() (watch.Interface, error) {
-
-	client, err := corev1client.NewForConfig(m.kubeConnection)
-	if err != nil {
-		return nil, errors.Wrap(err, "Could not get kube client")
+// GetKubeClient returns a kubernetes Corev1 client interface from the rest config used.
+func (m *DefaultExtensionManager) GetKubeClient() (corev1client.CoreV1Interface, error) {
+	if m.kubeClient == nil {
+		client, err := corev1client.NewForConfig(m.kubeConnection)
+		if err != nil {
+			return nil, errors.Wrap(err, "Could not get kube client")
+		}
+		m.kubeClient = client
 	}
+
+	return m.kubeClient, nil
+}
+
+func (m *DefaultExtensionManager) GenWatcher(client corev1client.CoreV1Interface) (watch.Interface, error) {
 
 	podInterface := client.Pods(m.Options.Namespace)
 	opts := metav1.ListOptions{Watch: true}
@@ -335,7 +344,11 @@ func (m *DefaultExtensionManager) HandleEvent(e watch.Event) {
 func (m *DefaultExtensionManager) Watch() error {
 	defer m.Logger.Sync()
 
-	watcher, err := m.GenWatcher()
+	client, err := m.GetKubeClient()
+	if err != nil {
+		return err
+	}
+	watcher, err := m.GenWatcher(client)
 	if err != nil {
 		return err
 	}
