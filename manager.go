@@ -92,6 +92,12 @@ type ManagerOptions struct {
 
 	// SetupCertificateName is the name of the generated certificates.  Optional, defaults uses OperatorFingerprint to generate a new one
 	SetupCertificateName string
+
+	// RegisterWebHook enables or disables automatic registering of webhooks. Defaults to true
+	RegisterWebHook *bool
+
+	// SetupCertificate enables or disables automatic certificate generation. Defaults to true
+	SetupCertificate *bool
 }
 
 var addToSchemes = runtime.SchemeBuilder{}
@@ -133,6 +139,15 @@ func NewManager(opts ManagerOptions) Manager {
 		opts.FilterEiriniApps = &filterEiriniApps
 	}
 
+	if opts.RegisterWebHook == nil {
+		registerWebHook := true
+		opts.RegisterWebHook = &registerWebHook
+	}
+
+	if opts.SetupCertificate == nil {
+		setuCertificate := true
+		opts.SetupCertificate = &setuCertificate
+	}
 	return &DefaultExtensionManager{Options: opts, Logger: opts.Logger}
 }
 
@@ -245,9 +260,11 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 		return errors.Wrap(err, "setting the operator namespace label")
 	}
 
-	err = m.WebhookConfig.setupCertificate(m.Context)
-	if err != nil {
-		return errors.Wrap(err, "setting up the webhook server certificate")
+	if *m.Options.SetupCertificate {
+		err = m.WebhookConfig.setupCertificate(m.Context)
+		if err != nil {
+			return errors.Wrap(err, "setting up the webhook server certificate")
+		}
 	}
 	return nil
 }

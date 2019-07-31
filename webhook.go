@@ -96,9 +96,11 @@ func (w *DefaultMutatingWebhook) RegisterAdmissionWebHook(opts WebhookOptions) (
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't build a new webhook")
 	}
-	err = opts.WebhookServer.Register(MutatingWebhook)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to register the hook with the admission server")
+	if *opts.ManagerOptions.RegisterWebHook {
+		err = opts.WebhookServer.Register(MutatingWebhook)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to register the hook with the admission server")
+		}
 	}
 	return MutatingWebhook, nil
 }
