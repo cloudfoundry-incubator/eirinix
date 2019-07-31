@@ -228,29 +228,8 @@ var _ = Describe("Extension Manager", func() {
 			Expect(string(sw.Handled[0].Type)).To(Equal("test"))
 
 			eiriniManager.SetKubeConnection(&rest.Config{})
-			w := &cfakes.FakeInterface{}
 
-			err := eiriniManager.ReadWatcherEvent(w)
-			Expect(err).ToNot(HaveOccurred())
-
-			c := make(chan watch.Event)
-
-			w.ResultChanCalls(func() <-chan watch.Event {
-				return c
-			})
-			close(c)
-
-			err = eiriniManager.ReadWatcherEvent(w)
-			Expect(err).To(HaveOccurred())
-
-			c = make(chan watch.Event, 1) // Make it a buffered to avoid to be blocking when we write to it
-			w.ResultChanCalls(func() <-chan watch.Event {
-				c <- watch.Event{Type: watch.EventType("1")}
-				return c
-			})
-
-			err = eiriniManager.ReadWatcherEvent(w)
-			Expect(err).ToNot(HaveOccurred())
+			eiriniManager.HandleEvent(watch.Event{Type: watch.EventType("1")})
 
 			Expect(string(sw.Handled[1].Type)).To(Equal("1"))
 		})
