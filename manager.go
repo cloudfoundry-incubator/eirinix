@@ -378,20 +378,12 @@ func (m *DefaultExtensionManager) HandleEvent(e watch.Event) {
 
 // ReadWatcherEvent tries to read events from the watcher channel and return error if the channel
 // is closed. It should be run in a loop.
-func (m *DefaultExtensionManager) ReadWatcherEvent(w watch.Interface) error {
+func (m *DefaultExtensionManager) ReadWatcherEvent(w watch.Interface) {
 	resultChannel := w.ResultChan()
 
-	select {
-	case e, ok := <-resultChannel:
-		if !ok {
-			return errors.New("Watcher died")
-		}
+	for e := range resultChannel {
 		m.HandleEvent(e)
-	default:
-		return nil
 	}
-
-	return nil
 }
 
 // Watch starts the Watchers Manager infinite loop, and returns an error on failure
@@ -407,13 +399,9 @@ func (m *DefaultExtensionManager) Watch() error {
 		return err
 	}
 
-	for {
-		if err := m.ReadWatcherEvent(watcher); err != nil {
-			return err
-		}
+	m.ReadWatcherEvent(watcher)
 
-	}
-
+	return errors.New("Watcher channel closed")
 }
 
 // Start starts the Manager infinite loop, and returns an error on failure
