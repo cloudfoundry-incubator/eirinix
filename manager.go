@@ -98,6 +98,9 @@ type ManagerOptions struct {
 
 	// SetupCertificate enables or disables automatic certificate generation. Defaults to true
 	SetupCertificate *bool
+
+	// ServiceName registers the Extension as a MutatingWebhook reachable by a service
+	ServiceName string
 }
 
 var addToSchemes = runtime.SchemeBuilder{}
@@ -241,7 +244,8 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 		cfg,
 		m.Credsgen,
 		fmt.Sprintf("%s-mutating-hook-%s", m.Options.OperatorFingerprint, m.Options.Namespace),
-		m.Options.SetupCertificateName)
+		m.Options.SetupCertificateName,
+		m.Options.ServiceName)
 
 	hookServer, err := webhook.NewServer(m.Options.OperatorFingerprint, m.KubeManager, webhook.ServerOptions{
 		Port:                          m.Options.Port,

@@ -34,6 +34,7 @@ type WebhookConfig struct {
 	CaCertificate []byte
 	CaKey         []byte
 
+	serviceName          string
 	setupCertificateName string
 	client               client.Client
 	config               *config.Config
@@ -41,13 +42,14 @@ type WebhookConfig struct {
 }
 
 // NewWebhookConfig returns a new WebhookConfig
-func NewWebhookConfig(c client.Client, config *config.Config, generator credsgen.Generator, configName string, setupCertificateName string) *WebhookConfig {
+func NewWebhookConfig(c client.Client, config *config.Config, generator credsgen.Generator, configName string, setupCertificateName string, serviceName string) *WebhookConfig {
 	return &WebhookConfig{
 		ConfigName:           configName,
 		CertDir:              path.Join(os.TempDir(), setupCertificateName),
 		client:               c,
 		config:               config,
 		generator:            generator,
+		serviceName:          serviceName,
 		setupCertificateName: setupCertificateName,
 	}
 }
@@ -168,21 +170,36 @@ func (f *WebhookConfig) generateWebhookServerConfig(ctx context.Context, webhook
 	}
 
 	for _, webhook := range webhooks {
-		url := url.URL{
-			Scheme: "https",
-			Host:   net.JoinHostPort(f.config.WebhookServerHost, strconv.Itoa(int(f.config.WebhookServerPort))),
-			Path:   webhook.Path,
+
+		var clientConfig admissionregistrationv1beta1.WebhookClientConfig
+		if len(f.serviceName) > 0 {
+			clientConfig = admissionregistrationv1beta1.WebhookClientConfig{
+				CABundle: f.CaCertificate,
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Name:      f.serviceName,
+					Namespace: f.config.Namespace,
+					Path:      &webhook.Path,
+				},
+			}
+		} else {
+			url := url.URL{
+				Scheme: "https",
+				Host:   net.JoinHostPort(f.config.WebhookServerHost, strconv.Itoa(int(f.config.WebhookServerPort))),
+				Path:   webhook.Path,
+			}
+			urlString := url.String()
+			clientConfig = admissionregistrationv1beta1.WebhookClientConfig{
+				CABundle: f.CaCertificate,
+				URL:      &urlString,
+			}
 		}
-		urlString := url.String()
+
 		wh := admissionregistrationv1beta1.Webhook{
 			Name:              webhook.GetName(),
 			Rules:             webhook.Rules,
 			FailurePolicy:     webhook.FailurePolicy,
 			NamespaceSelector: webhook.NamespaceSelector,
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				CABundle: f.CaCertificate,
-				URL:      &urlString,
-			},
+			ClientConfig:      clientConfig,
 		}
 
 		config.Webhooks = append(config.Webhooks, wh)
