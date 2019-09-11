@@ -101,6 +101,9 @@ type ManagerOptions struct {
 
 	// ServiceName registers the Extension as a MutatingWebhook reachable by a service
 	ServiceName string
+
+	// WebhookNamespace, when ServiceName is supplied, a WebhookNamespace is required to indicate in which namespace the webhook service runs on
+	WebhookNamespace string
 }
 
 var addToSchemes = runtime.SchemeBuilder{}
@@ -245,7 +248,8 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 		m.Credsgen,
 		fmt.Sprintf("%s-mutating-hook-%s", m.Options.OperatorFingerprint, m.Options.Namespace),
 		m.Options.SetupCertificateName,
-		m.Options.ServiceName)
+		m.Options.ServiceName,
+		m.Options.WebhookNamespace)
 
 	hookServer, err := webhook.NewServer(m.Options.OperatorFingerprint, m.KubeManager, webhook.ServerOptions{
 		Port:                          m.Options.Port,

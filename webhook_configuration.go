@@ -3,6 +3,7 @@ package extension
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -34,15 +35,16 @@ type WebhookConfig struct {
 	CaCertificate []byte
 	CaKey         []byte
 
-	serviceName          string
-	setupCertificateName string
-	client               client.Client
-	config               *config.Config
-	generator            credsgen.Generator
+	serviceName, webhookNamespace string
+	setupCertificateName          string
+
+	client    client.Client
+	config    *config.Config
+	generator credsgen.Generator
 }
 
 // NewWebhookConfig returns a new WebhookConfig
-func NewWebhookConfig(c client.Client, config *config.Config, generator credsgen.Generator, configName string, setupCertificateName string, serviceName string) *WebhookConfig {
+func NewWebhookConfig(c client.Client, config *config.Config, generator credsgen.Generator, configName string, setupCertificateName string, serviceName string, webhookNamespace string) *WebhookConfig {
 	return &WebhookConfig{
 		ConfigName:           configName,
 		CertDir:              path.Join(os.TempDir(), setupCertificateName),
@@ -50,6 +52,7 @@ func NewWebhookConfig(c client.Client, config *config.Config, generator credsgen
 		config:               config,
 		generator:            generator,
 		serviceName:          serviceName,
+		webhookNamespace:     webhookNamespace,
 		setupCertificateName: setupCertificateName,
 	}
 }
@@ -111,10 +114,18 @@ func (f *WebhookConfig) setupCertificate(ctx context.Context) error {
 			return err
 		}
 
+		commonName := f.config.WebhookServerHost
+		if len(f.serviceName) > 0 {
+			if len(f.webhookNamespace) == 0 {
+				return errors.New("No webhook namespace defined. If you run the extension under a service, you need to specify the service namespace")
+			}
+			commonName = fmt.Sprintf("%s.%s.svc", f.serviceName, f.webhookNamespace)
+		}
+
 		// Generate Certificate
 		request := credsgen.CertificateGenerationRequest{
 			IsCA:       false,
-			CommonName: f.config.WebhookServerHost,
+			CommonName: commonName,
 			CA: credsgen.Certificate{
 				IsCA:        true,
 				PrivateKey:  caCert.PrivateKey,
