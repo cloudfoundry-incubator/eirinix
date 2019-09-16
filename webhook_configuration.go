@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	machinerytypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
 	"code.cloudfoundry.org/cf-operator/pkg/kube/util/config"
@@ -168,7 +167,7 @@ func (f *WebhookConfig) setupCertificate(ctx context.Context) error {
 	return nil
 }
 
-func (f *WebhookConfig) generateWebhookServerConfig(ctx context.Context, webhooks []*admission.Webhook) error {
+func (f *WebhookConfig) generateWebhookServerConfig(ctx context.Context, webhooks []MutatingWebhook) error {
 	if len(f.CaCertificate) == 0 {
 		return errors.New("Can not create a webhook server config with an empty ca certificate")
 	}
@@ -184,19 +183,21 @@ func (f *WebhookConfig) generateWebhookServerConfig(ctx context.Context, webhook
 
 		var clientConfig admissionregistrationv1beta1.WebhookClientConfig
 		if len(f.serviceName) > 0 {
+			p := webhook.GetPath()
 			clientConfig = admissionregistrationv1beta1.WebhookClientConfig{
 				CABundle: f.CaCertificate,
 				Service: &admissionregistrationv1beta1.ServiceReference{
 					Name:      f.serviceName,
 					Namespace: f.config.Namespace,
-					Path:      &webhook.Path,
+					Path:      &p,
+					Port:      &f.config.WebhookServerPort,
 				},
 			}
 		} else {
 			url := url.URL{
 				Scheme: "https",
 				Host:   net.JoinHostPort(f.config.WebhookServerHost, strconv.Itoa(int(f.config.WebhookServerPort))),
-				Path:   webhook.Path,
+				Path:   webhook.GetPath(),
 			}
 			urlString := url.String()
 			clientConfig = admissionregistrationv1beta1.WebhookClientConfig{
@@ -204,12 +205,12 @@ func (f *WebhookConfig) generateWebhookServerConfig(ctx context.Context, webhook
 				URL:      &urlString,
 			}
 		}
-
+		p := webhook.GetFailurePolicy()
 		wh := admissionregistrationv1beta1.Webhook{
 			Name:              webhook.GetName(),
-			Rules:             webhook.Rules,
-			FailurePolicy:     webhook.FailurePolicy,
-			NamespaceSelector: webhook.NamespaceSelector,
+			Rules:             webhook.GetRules(),
+			FailurePolicy:     &p,
+			NamespaceSelector: webhook.GetNamespaceSelector(),
 			ClientConfig:      clientConfig,
 		}
 

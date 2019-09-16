@@ -25,9 +25,7 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // DefaultExtensionManager represent an implementation of Manager
@@ -61,6 +59,8 @@ type DefaultExtensionManager struct {
 
 	kubeConnection *rest.Config
 	kubeClient     corev1client.CoreV1Interface
+
+	stopChannel chan struct{}
 }
 
 // ManagerOptions represent the Runtime manager options
@@ -251,17 +251,20 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 		m.Options.ServiceName,
 		m.Options.WebhookNamespace)
 
-	hookServer, err := webhook.NewServer(m.Options.OperatorFingerprint, m.KubeManager, webhook.ServerOptions{
-		Port:                          m.Options.Port,
-		CertDir:                       m.WebhookConfig.CertDir,
-		DisableWebhookConfigInstaller: &disableConfigInstaller,
-		BootstrapOptions: &webhook.BootstrapOptions{
-			MutatingWebhookConfigName: m.WebhookConfig.ConfigName,
-			Host:                      &m.Options.Host},
-	})
-	if err != nil {
-		return err
-	}
+	hookServer := m.KubeManager.GetWebhookServer()
+	hookServer.CertDir = m.WebhookConfig.CertDir
+
+	// hookServer, err := webhook.NewServer(m.Options.OperatorFingerprint, m.KubeManager, webhook.ServerOptions{
+	// 	Port:                          m.Options.Port,
+	// 	CertDir:                       m.WebhookConfig.CertDir,
+	// 	DisableWebhookConfigInstaller: &disableConfigInstaller,
+	// 	BootstrapOptions: &webhook.BootstrapOptions{
+	// 		MutatingWebhookConfigName: m.WebhookConfig.ConfigName,
+	// 		Host:                      &m.Options.Host},
+	// })
+	// if err != nil {
+	// 	return err
+	// }
 	m.WebhookServer = hookServer
 
 	if err := m.setOperatorNamespaceLabel(); err != nil {
@@ -329,10 +332,11 @@ func (m *DefaultExtensionManager) SetKubeClient(c corev1client.CoreV1Interface) 
 
 // RegisterExtensions it generates and register webhooks from the Extensions loaded in the Manager
 func (m *DefaultExtensionManager) RegisterExtensions() error {
-	webhooks := []*admission.Webhook{}
+
+	var webhooks []MutatingWebhook
 	for k, e := range m.Extensions {
 		w := NewWebhook(e, m)
-		admissionHook, err := w.RegisterAdmissionWebHook(
+		err := w.RegisterAdmissionWebHook(
 			WebhookOptions{
 				ID:             strconv.Itoa(k),
 				Manager:        m.KubeManager,
@@ -342,7 +346,7 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 		if err != nil {
 			return err
 		}
-		webhooks = append(webhooks, admissionHook)
+		webhooks = append(webhooks, w)
 	}
 
 	if err := m.WebhookConfig.generateWebhookServerConfig(m.Context, webhooks); err != nil {
@@ -361,7 +365,11 @@ func (m *DefaultExtensionManager) setup() error {
 	mgr, err := manager.New(
 		kubeConn,
 		manager.Options{
-			Namespace: m.Options.Namespace,
+			Namespace:          m.Options.Namespace,
+			MetricsBindAddress: "0",
+			LeaderElection:     false,
+			Port:               int(m.Options.Port),
+			Host:               m.Options.Host,
 		})
 	if err != nil {
 		return err
@@ -428,8 +436,14 @@ func (m *DefaultExtensionManager) Start() error {
 	if err := m.RegisterExtensions(); err != nil {
 		return err
 	}
+	m.stopChannel = make(chan struct{})
 
-	return m.KubeManager.Start(signals.SetupSignalHandler())
+	return m.KubeManager.Start(m.stopChannel)
+}
+
+func (m *DefaultExtensionManager) Stop() {
+	defer m.Logger.Sync()
+	m.stopChannel <- struct{}{}
 }
 
 func (o *ManagerOptions) getDefaultNamespaceLabel() string {
