@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-	
 
-	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen"
-	inmemorycredgen "code.cloudfoundry.org/cf-operator/pkg/credsgen/in_memory_generator"
 	"go.uber.org/zap"
 
+	inmemorycredgen "code.cloudfoundry.org/cf-operator/pkg/credsgen/in_memory_generator"
+
+	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
 	kubeConfig "code.cloudfoundry.org/cf-operator/pkg/kube/config"
 	"code.cloudfoundry.org/cf-operator/pkg/kube/util/config"
 	"github.com/SUSE/eirinix/util/ctxlog"
@@ -254,7 +254,7 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 		Fs:                afero.NewOsFs(),
 	}
 
-	disableConfigInstaller := true
+	//disableConfigInstaller := true
 	m.Context = ctxlog.NewManagerContext(m.Logger)
 	m.WebhookConfig = NewWebhookConfig(
 		m.KubeManager.GetClient(),
@@ -268,17 +268,6 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 	hookServer := m.KubeManager.GetWebhookServer()
 	hookServer.CertDir = m.WebhookConfig.CertDir
 
-	// hookServer, err := webhook.NewServer(m.Options.OperatorFingerprint, m.KubeManager, webhook.ServerOptions{
-	// 	Port:                          m.Options.Port,
-	// 	CertDir:                       m.WebhookConfig.CertDir,
-	// 	DisableWebhookConfigInstaller: &disableConfigInstaller,
-	// 	BootstrapOptions: &webhook.BootstrapOptions{
-	// 		MutatingWebhookConfigName: m.WebhookConfig.ConfigName,
-	// 		Host:                      &m.Options.Host},
-	// })
-	// if err != nil {
-	// 	return err
-	// }
 	m.WebhookServer = hookServer
 
 	if err := m.setOperatorNamespaceLabel(); err != nil {

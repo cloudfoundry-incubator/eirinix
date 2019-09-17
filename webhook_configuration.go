@@ -190,7 +190,9 @@ func (f *WebhookConfig) generateWebhookServerConfig(ctx context.Context, webhook
 					Name:      f.serviceName,
 					Namespace: f.config.Namespace,
 					Path:      &p,
-					Port:      &f.config.WebhookServerPort,
+					// FIXME:
+					// client version still doesn't support specify a port for service reference
+					//		Port:      &f.config.WebhookServerPort,
 				},
 			}
 		} else {
