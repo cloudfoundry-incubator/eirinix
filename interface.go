@@ -101,4 +101,7 @@ type Manager interface {
 
 	// AddWatcher register a watcher to EiriniX
 	AddWatcher(w Watcher)
+
+	// Helper to compute the patch from a pod update
+	PatchFromPod(req admission.Request, pod *corev1.Pod ) admission.Response
 }

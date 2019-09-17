@@ -156,10 +156,7 @@ func (w *DefaultMutatingWebhook) RegisterAdmissionWebHook(opts WebhookOptions) e
 	}
 
 	if *opts.ManagerOptions.RegisterWebHook {
-		err := opts.WebhookServer.Register(w.Path, w.Webhook)
-		if err != nil {
-			return errors.Wrap(err, "unable to register the hook with the admission server")
-		}
+		opts.WebhookServer.Register(w.Path, w.Webhook)
 	}
 	return nil
 }
@@ -193,5 +190,5 @@ func (w *DefaultMutatingWebhook) Handle(ctx context.Context, req admission.Reque
 		return w.EiriniExtension.Handle(ctx, w.EiriniExtensionManager, pod, req)
 	}
 
-	return admission.PatchResponse(pod, podCopy)
+	return w.EiriniExtensionManager.PatchFromPod(req, podCopy)
 }

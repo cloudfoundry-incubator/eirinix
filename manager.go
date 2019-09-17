@@ -2,9 +2,12 @@ package extension
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
+	
 
 	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen"
 	inmemorycredgen "code.cloudfoundry.org/cf-operator/pkg/credsgen/in_memory_generator"
@@ -16,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,6 +30,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // DefaultExtensionManager represent an implementation of Manager
@@ -193,6 +198,15 @@ func (m *DefaultExtensionManager) GetKubeClient() (corev1client.CoreV1Interface,
 	}
 
 	return m.kubeClient, nil
+}
+
+func (m *DefaultExtensionManager) PatchFromPod(req admission.Request, pod *corev1.Pod) admission.Response {
+	marshaledPod, err := json.Marshal(pod)
+	if err != nil {
+		return admission.Errored(http.StatusInternalServerError, err)
+	}
+
+	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledPod)
 }
 
 // GenWatcher generates a watcher from a corev1client interface
