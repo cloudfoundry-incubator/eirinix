@@ -155,7 +155,7 @@ func (w *DefaultMutatingWebhook) RegisterAdmissionWebHook(opts WebhookOptions) e
 		Handler: w,
 	}
 
-	if *opts.ManagerOptions.RegisterWebHook {
+	if opts.ManagerOptions.RegisterWebHook == nil || opts.ManagerOptions.RegisterWebHook != nil && *opts.ManagerOptions.RegisterWebHook {
 		opts.WebhookServer.Register(w.Path, w.Webhook)
 	}
 	return nil
