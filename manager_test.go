@@ -25,6 +25,7 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	crc "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen"
 	gfakes "code.cloudfoundry.org/cf-operator/pkg/credsgen/fakes"
@@ -57,6 +58,7 @@ var _ = Describe("Extension Manager", func() {
 		manager.GetSchemeReturns(scheme.Scheme)
 		manager.GetClientReturns(client)
 		manager.GetRESTMapperReturns(restMapper)
+		manager.GetWebhookServerReturns(&webhook.Server{})
 
 		generator = &gfakes.FakeGenerator{}
 		generator.GenerateCertificateReturns(credsgen.Certificate{Certificate: []byte("thecert")}, nil)
@@ -90,8 +92,8 @@ var _ = Describe("Extension Manager", func() {
 		It("Setups correctly the operator structures", func() {
 			err := eiriniManager.OperatorSetup()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(eiriniManager.WebhookServer.Port).To(Equal(eiriniManager.Options.Port))
-			Expect(eiriniManager.WebhookServer.Host).To(Equal(&eiriniManager.Options.Host))
+			Expect(eiriniManager.WebhookServer.Port).To(Equal(int(eiriniManager.Options.Port)))
+			Expect(eiriniManager.WebhookServer.Host).To(Equal(eiriniManager.Options.Host))
 		})
 
 		It("called from the interface fails to start with no kube connection", func() {

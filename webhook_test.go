@@ -19,12 +19,12 @@ var _ = Describe("Webhook implementation", func() {
 
 	Context("With a fake extension", func() {
 		It("It errors without a manager", func() {
-			err := w.RegisterAdmissionWebHook(WebhookOptions{ID: "volume", ManagerOptions: ManagerOptions{Namespace: "eirini", OperatorFingerprint: "eirini-x"}})
+			err := w.RegisterAdmissionWebHook(nil, WebhookOptions{ID: "volume", ManagerOptions: ManagerOptions{Namespace: "eirini", OperatorFingerprint: "eirini-x"}})
 			Expect(err.Error()).To(Equal("No failure policy set"))
 			failurePolicy := admissionregistrationv1beta1.Fail
 
-			err = w.RegisterAdmissionWebHook(WebhookOptions{ID: "volume", ManagerOptions: ManagerOptions{FailurePolicy: &failurePolicy, Namespace: "eirini", OperatorFingerprint: "eirini-x"}})
-			Expect(err.Error()).To(Equal("couldn't build a new webhook: manager should be set using WithManager"))
+			err = w.RegisterAdmissionWebHook(nil, WebhookOptions{ID: "volume", ManagerOptions: ManagerOptions{FailurePolicy: &failurePolicy, Namespace: "eirini", OperatorFingerprint: "eirini-x"}})
+			Expect(err.Error()).To(Equal("The Mutating webhook needs a Webhook server to register to"))
 		})
 
 		It("Delegates to the Extension the handler", func() {
