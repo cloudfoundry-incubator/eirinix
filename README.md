@@ -20,7 +20,7 @@ The interface is defined as follows:
 
 ```golang
 type Extension interface {
-	Handle(context.Context, Manager, *corev1.Pod, types.Request) types.Response
+	Handle(context.Context, Manager, *corev1.Pod, admission.Request) admission.Response
 }
 ```
 
@@ -30,8 +30,8 @@ For example, a dummy extension (which does nothing) would be:
 
 type MyExtension struct {}
 
-func (e *MyExtension) Handle(context.Context, eirinix.Manager, *corev1.Pod, types.Request) types.Response {
-	return types.Response{}
+func (e *MyExtension) Handle(context.Context, eirinix.Manager, *corev1.Pod, admission.Request) admission.Response {
+	return admission.Response{}
 }
 ```
 
@@ -67,6 +67,38 @@ When running ```kubectl get events -n eirini``` lines of log containing
 
 are shown.
 
+### Services
+
+When running the service inside a pod, you can advertize the webhook to kubernetes with a service reference. 
+
+You can do that by specifying a `ServiceName` instead:
+
+
+```golang
+
+import "github.com/SUSE/eirinix"
+
+func main() {
+    x := eirinix.NewManager(
+            eirinix.ManagerOptions{
+                Namespace:  "eirini",
+                Host:       "0.0.0.0",
+                // KubeConfig can be ommitted for in-cluster connections
+                KubeConfig: kubeConfig,
+	            ServiceName: "listening-extension",
+                // WebhookNamespace, when ServiceName is supplied, a WebhookNamespace is required to indicate in which namespace the webhook service runs on
+                WebhookNamespace: "cf",
+        })
+
+    x.AddExtension(&MyExtension{})
+    log.Fatal(x.Start())
+}
+
+```
+
+The host will be the listening ip, and the service name refer to the kubernetes service. You need also to specify `WebhookNamespace` which is the namespace where the extension pod is running.
+
+Note that you cannot setup a port, and default one is used (443) for specifying a service. This is a limitation and the `Port` option will be ignored until there will be a kubernetes client api bump of the EiriniX dependencies (cf-operator).
 
 #### Fix for a running cluster
 
