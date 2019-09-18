@@ -1,3 +1,5 @@
+ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+
 all: test-unit build
 
 export NAMESPACE ?= eirini
@@ -23,6 +25,9 @@ test-e2e:
 	bin/test-e2e
 
 test: vet lint test-unit
+
+test-docker:
+	docker run -v $(ROOT_DIR):/src/ --workdir /src/ --rm -ti golang make tools test-unit
 
 tools:
 	bin/tools

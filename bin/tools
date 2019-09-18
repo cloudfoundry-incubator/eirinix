@@ -1,6 +1,7 @@
 #!/bin/sh
 set -e
 
+# This should never update your go.mod
+GO111MODULE=off
 go get -u golang.org/x/lint/golint
-go get -u github.com/maxbrunsfeld/counterfeiter
 go get -u github.com/onsi/ginkgo/ginkgo
