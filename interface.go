@@ -50,7 +50,7 @@ type MutatingWebhook interface {
 	Handle(context.Context, admission.Request) admission.Response
 	InjectClient(c client.Client) error
 	InjectDecoder(d *admission.Decoder) error
-	RegisterAdmissionWebHook(WebhookOptions) error
+	RegisterAdmissionWebHook(*webhook.Server, WebhookOptions) error
 
 	GetName() string
 	GetPath() string
@@ -103,5 +103,5 @@ type Manager interface {
 	AddWatcher(w Watcher)
 
 	// Helper to compute the patch from a pod update
-	PatchFromPod(req admission.Request, pod *corev1.Pod ) admission.Response
+	PatchFromPod(req admission.Request, pod *corev1.Pod) admission.Response
 }

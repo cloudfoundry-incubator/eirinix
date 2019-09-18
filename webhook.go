@@ -99,7 +99,6 @@ type WebhookOptions struct {
 	ID             string // Webhook path will be generated out of that
 	MatchLabels    map[string]string
 	Manager        manager.Manager
-	WebhookServer  *webhook.Server
 	ManagerOptions ManagerOptions
 }
 
@@ -120,7 +119,7 @@ func (w *DefaultMutatingWebhook) getNamespaceSelector(opts WebhookOptions) *meta
 }
 
 // RegisterAdmissionWebHook registers the Mutating WebHook to the WebHook Server and returns the generated Admission Webhook
-func (w *DefaultMutatingWebhook) RegisterAdmissionWebHook(opts WebhookOptions) error {
+func (w *DefaultMutatingWebhook) RegisterAdmissionWebHook(server *webhook.Server, opts WebhookOptions) error {
 	if opts.ManagerOptions.FailurePolicy == nil {
 		return errors.New("No failure policy set")
 	}
@@ -156,7 +155,10 @@ func (w *DefaultMutatingWebhook) RegisterAdmissionWebHook(opts WebhookOptions) e
 	}
 
 	if opts.ManagerOptions.RegisterWebHook == nil || opts.ManagerOptions.RegisterWebHook != nil && *opts.ManagerOptions.RegisterWebHook {
-		opts.WebhookServer.Register(w.Path, w.Webhook)
+		if server == nil {
+			return errors.New("The Mutating webhook needs a Webhook server to register to")
+		}
+		server.Register(w.Path, w.Webhook)
 	}
 	return nil
 }

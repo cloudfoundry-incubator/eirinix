@@ -267,7 +267,8 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 
 	hookServer := m.KubeManager.GetWebhookServer()
 	hookServer.CertDir = m.WebhookConfig.CertDir
-
+	hookServer.Port = int(m.Options.Port)
+	hookServer.Host = m.Options.Host
 	m.WebhookServer = hookServer
 
 	if err := m.setOperatorNamespaceLabel(); err != nil {
@@ -339,11 +340,10 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 	var webhooks []MutatingWebhook
 	for k, e := range m.Extensions {
 		w := NewWebhook(e, m)
-		err := w.RegisterAdmissionWebHook(
+		err := w.RegisterAdmissionWebHook(m.WebhookServer,
 			WebhookOptions{
 				ID:             strconv.Itoa(k),
 				Manager:        m.KubeManager,
-				WebhookServer:  m.WebhookServer,
 				ManagerOptions: m.Options,
 			})
 		if err != nil {
