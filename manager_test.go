@@ -35,20 +35,21 @@ import (
 var _ = Describe("Extension Manager", func() {
 
 	var (
-		manager        *cfakes.FakeManager
-		client         *cfakes.FakeClient
-		ctx            context.Context
-		generator      *gfakes.FakeGenerator
-		eirinixcatalog catalog.Catalog
-		Manager        Manager
-		eiriniManager  *DefaultExtensionManager
+		manager                             *cfakes.FakeManager
+		client                              *cfakes.FakeClient
+		ctx                                 context.Context
+		generator                           *gfakes.FakeGenerator
+		eirinixcatalog                      catalog.Catalog
+		ServiceManager, Manager             Manager
+		eiriniServiceManager, eiriniManager *DefaultExtensionManager
 	)
 
 	BeforeEach(func() {
 		eirinixcatalog = catalog.NewCatalog()
 		Manager = eirinixcatalog.SimpleManager()
 		eiriniManager, _ = Manager.(*DefaultExtensionManager)
-
+		ServiceManager = eirinixcatalog.SimpleManagerService()
+		eiriniServiceManager, _ = ServiceManager.(*DefaultExtensionManager)
 		AddToScheme(scheme.Scheme)
 		client = &cfakes.FakeClient{}
 		restMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
@@ -69,6 +70,11 @@ var _ = Describe("Extension Manager", func() {
 		eiriniManager.KubeManager = manager
 		eiriniManager.Options.Namespace = "default"
 		eiriniManager.Credsgen = generator
+
+		eiriniServiceManager.Context = ctx
+		eiriniServiceManager.KubeManager = manager
+		eiriniServiceManager.Options.Namespace = "default"
+		eiriniServiceManager.Credsgen = generator
 	})
 
 	Context("DefaultExtensionManager", func() {
@@ -265,6 +271,18 @@ var _ = Describe("Extension Manager", func() {
 			_, err := eiriniManager.GenWatcher(fakeCorev1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(opts.LabelSelector).To(Equal(""))
+		})
+	})
+
+	Context("Extensions with services", func() {
+		It("doesn't fail", func() {
+			Expect(eiriniServiceManager.Options.Port).To(Equal(int32(443)))
+			eiriniServiceManager.AddExtension(eirinixcatalog.SimpleExtension())
+			err := eiriniServiceManager.OperatorSetup()
+			Expect(err).ToNot(HaveOccurred())
+			err = eiriniServiceManager.RegisterExtensions()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(eiriniServiceManager.ListExtensions())).To(Equal(1))
 		})
 	})
 })

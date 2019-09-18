@@ -42,6 +42,18 @@ func (c *Catalog) SimpleManager() eirinix.Manager {
 		})
 }
 
+// SimpleManagerService returns a dummy Extensions manager configured to run as a service
+func (c *Catalog) SimpleManagerService() eirinix.Manager {
+	return eirinix.NewManager(
+		eirinix.ManagerOptions{
+			Namespace:        "eirini",
+			Host:             "0.0.0.0",
+			Port:             0,
+			ServiceName:      "extension",
+			WebhookNamespace: "cf",
+		})
+}
+
 type SimpleWatch struct {
 	Handled []watch.Event
 }
