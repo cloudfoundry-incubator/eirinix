@@ -159,6 +159,7 @@ func NewManager(opts ManagerOptions) Manager {
 		setuCertificate := true
 		opts.SetupCertificate = &setuCertificate
 	}
+
 	return &DefaultExtensionManager{Options: opts, Logger: opts.Logger}
 }
 
@@ -241,24 +242,20 @@ func (m *DefaultExtensionManager) kubeSetup() error {
 	return nil
 }
 
-// OperatorSetup prepares the webhook server, generates certificates and configuration.
-// It also setups the namespace label for the operator
-func (m *DefaultExtensionManager) OperatorSetup() error {
-	var err error
-
-	cfg := &config.Config{
-		CtxTimeOut:        10 * time.Second,
-		Namespace:         m.Options.Namespace,
-		WebhookServerHost: m.Options.Host,
-		WebhookServerPort: m.Options.Port,
-		Fs:                afero.NewOsFs(),
-	}
+// GenWebHookServer prepares the webhook server structures
+func (m *DefaultExtensionManager) GenWebHookServer() {
 
 	//disableConfigInstaller := true
 	m.Context = ctxlog.NewManagerContext(m.Logger)
 	m.WebhookConfig = NewWebhookConfig(
 		m.KubeManager.GetClient(),
-		cfg,
+		&config.Config{
+			CtxTimeOut:        10 * time.Second,
+			Namespace:         m.Options.Namespace,
+			WebhookServerHost: m.Options.Host,
+			WebhookServerPort: m.Options.Port,
+			Fs:                afero.NewOsFs(),
+		},
 		m.Credsgen,
 		fmt.Sprintf("%s-mutating-hook-%s", m.Options.OperatorFingerprint, m.Options.Namespace),
 		m.Options.SetupCertificateName,
@@ -270,14 +267,21 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 	hookServer.Port = int(m.Options.Port)
 	hookServer.Host = m.Options.Host
 	m.WebhookServer = hookServer
+}
+
+// OperatorSetup prepares the webhook server, generates certificates and configuration.
+// It also setups the namespace label for the operator
+func (m *DefaultExtensionManager) OperatorSetup() error {
+
+	m.GenWebHookServer()
 
 	if err := m.setOperatorNamespaceLabel(); err != nil {
 		return errors.Wrap(err, "setting the operator namespace label")
 	}
 
 	if *m.Options.SetupCertificate {
-		err = m.WebhookConfig.setupCertificate(m.Context)
-		if err != nil {
+
+		if err := m.WebhookConfig.setupCertificate(m.Context); err != nil {
 			return errors.Wrap(err, "setting up the webhook server certificate")
 		}
 	}
@@ -352,7 +356,7 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 		webhooks = append(webhooks, w)
 	}
 
-	if err := m.WebhookConfig.generateWebhookServerConfig(m.Context, webhooks); err != nil {
+	if err := m.WebhookConfig.registerWebhooks(m.Context, webhooks); err != nil {
 		return errors.Wrap(err, "generating the webhook server configuration")
 	}
 	return nil

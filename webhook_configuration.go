@@ -167,28 +167,19 @@ func (f *WebhookConfig) setupCertificate(ctx context.Context) error {
 	return nil
 }
 
-func (f *WebhookConfig) generateWebhookServerConfig(ctx context.Context, webhooks []MutatingWebhook) error {
-	if len(f.CaCertificate) == 0 {
-		return errors.New("Can not create a webhook server config with an empty ca certificate")
-	}
+func (f *WebhookConfig) GenerateAdmissionWebhook(webhooks []MutatingWebhook) []admissionregistrationv1beta1.Webhook {
 
-	config := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      f.ConfigName,
-			Namespace: f.config.Namespace,
-		},
-	}
+	var mutatingHooks []admissionregistrationv1beta1.Webhook
 
 	for _, webhook := range webhooks {
-
 		var clientConfig admissionregistrationv1beta1.WebhookClientConfig
-		if len(f.serviceName) > 0 {
+		if f.serviceName != "" {
 			p := webhook.GetPath()
 			clientConfig = admissionregistrationv1beta1.WebhookClientConfig{
 				CABundle: f.CaCertificate,
 				Service: &admissionregistrationv1beta1.ServiceReference{
 					Name:      f.serviceName,
-					Namespace: f.config.Namespace,
+					Namespace: f.webhookNamespace,
 					Path:      &p,
 					// FIXME:
 					// client version still doesn't support specify a port for service reference
@@ -216,7 +207,22 @@ func (f *WebhookConfig) generateWebhookServerConfig(ctx context.Context, webhook
 			ClientConfig:      clientConfig,
 		}
 
-		config.Webhooks = append(config.Webhooks, wh)
+		mutatingHooks = append(mutatingHooks, wh)
+	}
+	return mutatingHooks
+}
+
+func (f *WebhookConfig) registerWebhooks(ctx context.Context, webhooks []MutatingWebhook) error {
+	if len(f.CaCertificate) == 0 {
+		return errors.New("Can not create a webhook server config with an empty ca certificate")
+	}
+
+	config := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      f.ConfigName,
+			Namespace: f.config.Namespace,
+		},
+		Webhooks: f.GenerateAdmissionWebhook(webhooks),
 	}
 
 	f.client.Delete(ctx, config)
