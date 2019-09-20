@@ -119,7 +119,7 @@ var _ = Describe("Extension Manager", func() {
 			defer os.RemoveAll(fmt.Sprintf("/tmp/%s", eiriniManager.Options.SetupCertificateName))
 
 			Expect(eiriniManager.WebhookServer).To(BeNil())
-			Expect(afero.Exists(afero.NewOsFs(), fmt.Sprintf("/tmp/%s/key.pem", eiriniManager.Options.SetupCertificateName))).To(BeFalse())
+			Expect(afero.Exists(afero.NewOsFs(), fmt.Sprintf("/tmp/%s/tls.key", eiriniManager.Options.SetupCertificateName))).To(BeFalse())
 
 			err := eiriniManager.OperatorSetup()
 			Expect(err).ToNot(HaveOccurred())
@@ -131,7 +131,7 @@ var _ = Describe("Extension Manager", func() {
 			Expect(eiriniManager.WebhookConfig.CertDir).To(Equal(eiriniManager.WebhookServer.CertDir))
 			//	Expect(eiriniManager.WebhookConfig.ConfigName).To(Equal(eiriniManager.WebhookServer.BootstrapOptions.MutatingWebhookConfigName))
 
-			Expect(afero.Exists(afero.NewOsFs(), fmt.Sprintf("/tmp/%s/key.pem", eiriniManager.Options.SetupCertificateName))).To(BeTrue())
+			Expect(afero.Exists(afero.NewOsFs(), fmt.Sprintf("/tmp/%s/tls.key", eiriniManager.Options.SetupCertificateName))).To(BeTrue())
 			Expect(generator.GenerateCertificateCallCount()).To(Equal(2)) // Generate CA and certificate
 			Expect(client.CreateCallCount()).To(Equal(2))                 // Persist secret and the webhook config
 		})
