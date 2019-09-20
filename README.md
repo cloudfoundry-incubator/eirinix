@@ -85,7 +85,7 @@ func main() {
                 Host:       "0.0.0.0",
                 // KubeConfig can be ommitted for in-cluster connections
                 KubeConfig: kubeConfig,
-	            ServiceName: "listening-extension",
+	              ServiceName: "listening-extension",
                 // WebhookNamespace, when ServiceName is supplied, a WebhookNamespace is required to indicate in which namespace the webhook service runs on
                 WebhookNamespace: "cf",
         })
@@ -98,7 +98,8 @@ func main() {
 
 The host will be the listening ip, and the service name refer to the kubernetes service. You need also to specify `WebhookNamespace` which is the namespace where the extension pod is running.
 
-Note that you cannot setup a port, and default one is used (443) for specifying a service. This is a limitation and the `Port` option will be ignored until there will be a kubernetes client api bump of the EiriniX dependencies (cf-operator).
+Note that you cannot setup a port, and default one is used (443) for specifying a service. You must use 443 as external port in the service, and refer as the internal one to the one specified with `Port`.
+This is a limitation and the `Port` option will refer to the local listener until there will be a kubernetes client api bump of the EiriniX dependencies (cf-operator).
 
 #### Fix for a running cluster
 
