@@ -250,11 +250,11 @@ func (f *WebhookConfig) writeSecretFiles() error {
 	if err != nil {
 		return err
 	}
-	err = afero.WriteFile(f.config.Fs, path.Join(f.CertDir, "key.pem"), f.Key, 0600)
+	err = afero.WriteFile(f.config.Fs, path.Join(f.CertDir, "tls.key"), f.Key, 0600)
 	if err != nil {
 		return err
 	}
-	err = afero.WriteFile(f.config.Fs, path.Join(f.CertDir, "cert.pem"), f.Certificate, 0644)
+	err = afero.WriteFile(f.config.Fs, path.Join(f.CertDir, "tls.crt"), f.Certificate, 0644)
 	if err != nil {
 		return err
 	}
