@@ -276,7 +276,7 @@ var _ = Describe("Extension Manager", func() {
 
 	Context("Extensions with services", func() {
 		It("doesn't fail", func() {
-			Expect(eiriniServiceManager.Options.Port).To(Equal(int32(443)))
+			Expect(eiriniServiceManager.Options.Port).To(Equal(int32(0)))
 			eiriniServiceManager.AddExtension(eirinixcatalog.SimpleExtension())
 			err := eiriniServiceManager.OperatorSetup()
 			Expect(err).ToNot(HaveOccurred())
