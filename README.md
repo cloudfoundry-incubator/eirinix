@@ -69,7 +69,7 @@ are shown.
 
 ### Services
 
-When running the service inside a pod, you can advertize the webhook to kubernetes with a service reference. 
+When you expose the webhook server through a service, you can advertize the webhook to kubernetes with a service reference.
 
 You can do that by specifying a `ServiceName` instead:
 
@@ -85,7 +85,7 @@ func main() {
                 Host:       "0.0.0.0",
                 // KubeConfig can be ommitted for in-cluster connections
                 KubeConfig: kubeConfig,
-	              ServiceName: "listening-extension",
+                ServiceName: "listening-extension",
                 // WebhookNamespace, when ServiceName is supplied, a WebhookNamespace is required to indicate in which namespace the webhook service runs on
                 WebhookNamespace: "cf",
         })
