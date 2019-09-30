@@ -4,15 +4,17 @@ import (
 	"context"
 
 	"go.uber.org/zap"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
 // Extension is the Eirini Extension interface
@@ -28,7 +30,7 @@ type Extension interface {
 	// decoded payloads from the kubeapi server.
 	//
 	// The manager will attempt to decode a pod from the request if possible and passes it to the Manager.
-	Handle(context.Context, Manager, *corev1.Pod, types.Request) types.Response
+	Handle(context.Context, Manager, *corev1.Pod, admission.Request) admission.Response
 }
 
 // Watcher is the Eirini Watcher Extension interface.
@@ -45,10 +47,18 @@ type Watcher interface {
 // It represent the minimal set of methods that the libraries used behind the scenes expect from a structure
 // that implements a Mutating Webhook
 type MutatingWebhook interface {
-	Handle(context.Context, types.Request) types.Response
+	Handle(context.Context, admission.Request) admission.Response
 	InjectClient(c client.Client) error
-	InjectDecoder(d types.Decoder) error
-	RegisterAdmissionWebHook(WebhookOptions) (*admission.Webhook, error)
+	InjectDecoder(d *admission.Decoder) error
+	RegisterAdmissionWebHook(*webhook.Server, WebhookOptions) error
+
+	GetName() string
+	GetPath() string
+	GetRules() []admissionregistrationv1beta1.RuleWithOperations
+	GetFailurePolicy() admissionregistrationv1beta1.FailurePolicyType
+	GetNamespaceSelector() *metav1.LabelSelector
+	GetHandler() admission.Handler
+	GetWebhook() *webhook.Admission
 }
 
 // Manager is the interface of the manager for registering Eirini extensions
@@ -91,4 +101,7 @@ type Manager interface {
 
 	// AddWatcher register a watcher to EiriniX
 	AddWatcher(w Watcher)
+
+	// Helper to compute the patch from a pod update
+	PatchFromPod(req admission.Request, pod *corev1.Pod) admission.Response
 }

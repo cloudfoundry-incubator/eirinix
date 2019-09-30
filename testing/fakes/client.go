@@ -11,11 +11,12 @@ import (
 )
 
 type FakeClient struct {
-	CreateStub        func(context.Context, runtime.Object) error
+	CreateStub        func(context.Context, runtime.Object, ...client.CreateOption) error
 	createMutex       sync.RWMutex
 	createArgsForCall []struct {
 		arg1 context.Context
 		arg2 runtime.Object
+		arg3 []client.CreateOption
 	}
 	createReturns struct {
 		result1 error
@@ -23,17 +24,30 @@ type FakeClient struct {
 	createReturnsOnCall map[int]struct {
 		result1 error
 	}
-	DeleteStub        func(context.Context, runtime.Object, ...client.DeleteOptionFunc) error
+	DeleteStub        func(context.Context, runtime.Object, ...client.DeleteOption) error
 	deleteMutex       sync.RWMutex
 	deleteArgsForCall []struct {
 		arg1 context.Context
 		arg2 runtime.Object
-		arg3 []client.DeleteOptionFunc
+		arg3 []client.DeleteOption
 	}
 	deleteReturns struct {
 		result1 error
 	}
 	deleteReturnsOnCall map[int]struct {
+		result1 error
+	}
+	DeleteAllOfStub        func(context.Context, runtime.Object, ...client.DeleteAllOfOption) error
+	deleteAllOfMutex       sync.RWMutex
+	deleteAllOfArgsForCall []struct {
+		arg1 context.Context
+		arg2 runtime.Object
+		arg3 []client.DeleteAllOfOption
+	}
+	deleteAllOfReturns struct {
+		result1 error
+	}
+	deleteAllOfReturnsOnCall map[int]struct {
 		result1 error
 	}
 	GetStub        func(context.Context, types.NamespacedName, runtime.Object) error
@@ -49,17 +63,31 @@ type FakeClient struct {
 	getReturnsOnCall map[int]struct {
 		result1 error
 	}
-	ListStub        func(context.Context, *client.ListOptions, runtime.Object) error
+	ListStub        func(context.Context, runtime.Object, ...client.ListOption) error
 	listMutex       sync.RWMutex
 	listArgsForCall []struct {
 		arg1 context.Context
-		arg2 *client.ListOptions
-		arg3 runtime.Object
+		arg2 runtime.Object
+		arg3 []client.ListOption
 	}
 	listReturns struct {
 		result1 error
 	}
 	listReturnsOnCall map[int]struct {
+		result1 error
+	}
+	PatchStub        func(context.Context, runtime.Object, client.Patch, ...client.PatchOption) error
+	patchMutex       sync.RWMutex
+	patchArgsForCall []struct {
+		arg1 context.Context
+		arg2 runtime.Object
+		arg3 client.Patch
+		arg4 []client.PatchOption
+	}
+	patchReturns struct {
+		result1 error
+	}
+	patchReturnsOnCall map[int]struct {
 		result1 error
 	}
 	StatusStub        func() client.StatusWriter
@@ -72,11 +100,12 @@ type FakeClient struct {
 	statusReturnsOnCall map[int]struct {
 		result1 client.StatusWriter
 	}
-	UpdateStub        func(context.Context, runtime.Object) error
+	UpdateStub        func(context.Context, runtime.Object, ...client.UpdateOption) error
 	updateMutex       sync.RWMutex
 	updateArgsForCall []struct {
 		arg1 context.Context
 		arg2 runtime.Object
+		arg3 []client.UpdateOption
 	}
 	updateReturns struct {
 		result1 error
@@ -88,17 +117,18 @@ type FakeClient struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeClient) Create(arg1 context.Context, arg2 runtime.Object) error {
+func (fake *FakeClient) Create(arg1 context.Context, arg2 runtime.Object, arg3 ...client.CreateOption) error {
 	fake.createMutex.Lock()
 	ret, specificReturn := fake.createReturnsOnCall[len(fake.createArgsForCall)]
 	fake.createArgsForCall = append(fake.createArgsForCall, struct {
 		arg1 context.Context
 		arg2 runtime.Object
-	}{arg1, arg2})
-	fake.recordInvocation("Create", []interface{}{arg1, arg2})
+		arg3 []client.CreateOption
+	}{arg1, arg2, arg3})
+	fake.recordInvocation("Create", []interface{}{arg1, arg2, arg3})
 	fake.createMutex.Unlock()
 	if fake.CreateStub != nil {
-		return fake.CreateStub(arg1, arg2)
+		return fake.CreateStub(arg1, arg2, arg3...)
 	}
 	if specificReturn {
 		return ret.result1
@@ -113,17 +143,17 @@ func (fake *FakeClient) CreateCallCount() int {
 	return len(fake.createArgsForCall)
 }
 
-func (fake *FakeClient) CreateCalls(stub func(context.Context, runtime.Object) error) {
+func (fake *FakeClient) CreateCalls(stub func(context.Context, runtime.Object, ...client.CreateOption) error) {
 	fake.createMutex.Lock()
 	defer fake.createMutex.Unlock()
 	fake.CreateStub = stub
 }
 
-func (fake *FakeClient) CreateArgsForCall(i int) (context.Context, runtime.Object) {
+func (fake *FakeClient) CreateArgsForCall(i int) (context.Context, runtime.Object, []client.CreateOption) {
 	fake.createMutex.RLock()
 	defer fake.createMutex.RUnlock()
 	argsForCall := fake.createArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *FakeClient) CreateReturns(result1 error) {
@@ -149,13 +179,13 @@ func (fake *FakeClient) CreateReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeClient) Delete(arg1 context.Context, arg2 runtime.Object, arg3 ...client.DeleteOptionFunc) error {
+func (fake *FakeClient) Delete(arg1 context.Context, arg2 runtime.Object, arg3 ...client.DeleteOption) error {
 	fake.deleteMutex.Lock()
 	ret, specificReturn := fake.deleteReturnsOnCall[len(fake.deleteArgsForCall)]
 	fake.deleteArgsForCall = append(fake.deleteArgsForCall, struct {
 		arg1 context.Context
 		arg2 runtime.Object
-		arg3 []client.DeleteOptionFunc
+		arg3 []client.DeleteOption
 	}{arg1, arg2, arg3})
 	fake.recordInvocation("Delete", []interface{}{arg1, arg2, arg3})
 	fake.deleteMutex.Unlock()
@@ -175,13 +205,13 @@ func (fake *FakeClient) DeleteCallCount() int {
 	return len(fake.deleteArgsForCall)
 }
 
-func (fake *FakeClient) DeleteCalls(stub func(context.Context, runtime.Object, ...client.DeleteOptionFunc) error) {
+func (fake *FakeClient) DeleteCalls(stub func(context.Context, runtime.Object, ...client.DeleteOption) error) {
 	fake.deleteMutex.Lock()
 	defer fake.deleteMutex.Unlock()
 	fake.DeleteStub = stub
 }
 
-func (fake *FakeClient) DeleteArgsForCall(i int) (context.Context, runtime.Object, []client.DeleteOptionFunc) {
+func (fake *FakeClient) DeleteArgsForCall(i int) (context.Context, runtime.Object, []client.DeleteOption) {
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
 	argsForCall := fake.deleteArgsForCall[i]
@@ -207,6 +237,68 @@ func (fake *FakeClient) DeleteReturnsOnCall(i int, result1 error) {
 		})
 	}
 	fake.deleteReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeClient) DeleteAllOf(arg1 context.Context, arg2 runtime.Object, arg3 ...client.DeleteAllOfOption) error {
+	fake.deleteAllOfMutex.Lock()
+	ret, specificReturn := fake.deleteAllOfReturnsOnCall[len(fake.deleteAllOfArgsForCall)]
+	fake.deleteAllOfArgsForCall = append(fake.deleteAllOfArgsForCall, struct {
+		arg1 context.Context
+		arg2 runtime.Object
+		arg3 []client.DeleteAllOfOption
+	}{arg1, arg2, arg3})
+	fake.recordInvocation("DeleteAllOf", []interface{}{arg1, arg2, arg3})
+	fake.deleteAllOfMutex.Unlock()
+	if fake.DeleteAllOfStub != nil {
+		return fake.DeleteAllOfStub(arg1, arg2, arg3...)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	fakeReturns := fake.deleteAllOfReturns
+	return fakeReturns.result1
+}
+
+func (fake *FakeClient) DeleteAllOfCallCount() int {
+	fake.deleteAllOfMutex.RLock()
+	defer fake.deleteAllOfMutex.RUnlock()
+	return len(fake.deleteAllOfArgsForCall)
+}
+
+func (fake *FakeClient) DeleteAllOfCalls(stub func(context.Context, runtime.Object, ...client.DeleteAllOfOption) error) {
+	fake.deleteAllOfMutex.Lock()
+	defer fake.deleteAllOfMutex.Unlock()
+	fake.DeleteAllOfStub = stub
+}
+
+func (fake *FakeClient) DeleteAllOfArgsForCall(i int) (context.Context, runtime.Object, []client.DeleteAllOfOption) {
+	fake.deleteAllOfMutex.RLock()
+	defer fake.deleteAllOfMutex.RUnlock()
+	argsForCall := fake.deleteAllOfArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *FakeClient) DeleteAllOfReturns(result1 error) {
+	fake.deleteAllOfMutex.Lock()
+	defer fake.deleteAllOfMutex.Unlock()
+	fake.DeleteAllOfStub = nil
+	fake.deleteAllOfReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeClient) DeleteAllOfReturnsOnCall(i int, result1 error) {
+	fake.deleteAllOfMutex.Lock()
+	defer fake.deleteAllOfMutex.Unlock()
+	fake.DeleteAllOfStub = nil
+	if fake.deleteAllOfReturnsOnCall == nil {
+		fake.deleteAllOfReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.deleteAllOfReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
@@ -273,18 +365,18 @@ func (fake *FakeClient) GetReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeClient) List(arg1 context.Context, arg2 *client.ListOptions, arg3 runtime.Object) error {
+func (fake *FakeClient) List(arg1 context.Context, arg2 runtime.Object, arg3 ...client.ListOption) error {
 	fake.listMutex.Lock()
 	ret, specificReturn := fake.listReturnsOnCall[len(fake.listArgsForCall)]
 	fake.listArgsForCall = append(fake.listArgsForCall, struct {
 		arg1 context.Context
-		arg2 *client.ListOptions
-		arg3 runtime.Object
+		arg2 runtime.Object
+		arg3 []client.ListOption
 	}{arg1, arg2, arg3})
 	fake.recordInvocation("List", []interface{}{arg1, arg2, arg3})
 	fake.listMutex.Unlock()
 	if fake.ListStub != nil {
-		return fake.ListStub(arg1, arg2, arg3)
+		return fake.ListStub(arg1, arg2, arg3...)
 	}
 	if specificReturn {
 		return ret.result1
@@ -299,13 +391,13 @@ func (fake *FakeClient) ListCallCount() int {
 	return len(fake.listArgsForCall)
 }
 
-func (fake *FakeClient) ListCalls(stub func(context.Context, *client.ListOptions, runtime.Object) error) {
+func (fake *FakeClient) ListCalls(stub func(context.Context, runtime.Object, ...client.ListOption) error) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = stub
 }
 
-func (fake *FakeClient) ListArgsForCall(i int) (context.Context, *client.ListOptions, runtime.Object) {
+func (fake *FakeClient) ListArgsForCall(i int) (context.Context, runtime.Object, []client.ListOption) {
 	fake.listMutex.RLock()
 	defer fake.listMutex.RUnlock()
 	argsForCall := fake.listArgsForCall[i]
@@ -331,6 +423,69 @@ func (fake *FakeClient) ListReturnsOnCall(i int, result1 error) {
 		})
 	}
 	fake.listReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeClient) Patch(arg1 context.Context, arg2 runtime.Object, arg3 client.Patch, arg4 ...client.PatchOption) error {
+	fake.patchMutex.Lock()
+	ret, specificReturn := fake.patchReturnsOnCall[len(fake.patchArgsForCall)]
+	fake.patchArgsForCall = append(fake.patchArgsForCall, struct {
+		arg1 context.Context
+		arg2 runtime.Object
+		arg3 client.Patch
+		arg4 []client.PatchOption
+	}{arg1, arg2, arg3, arg4})
+	fake.recordInvocation("Patch", []interface{}{arg1, arg2, arg3, arg4})
+	fake.patchMutex.Unlock()
+	if fake.PatchStub != nil {
+		return fake.PatchStub(arg1, arg2, arg3, arg4...)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	fakeReturns := fake.patchReturns
+	return fakeReturns.result1
+}
+
+func (fake *FakeClient) PatchCallCount() int {
+	fake.patchMutex.RLock()
+	defer fake.patchMutex.RUnlock()
+	return len(fake.patchArgsForCall)
+}
+
+func (fake *FakeClient) PatchCalls(stub func(context.Context, runtime.Object, client.Patch, ...client.PatchOption) error) {
+	fake.patchMutex.Lock()
+	defer fake.patchMutex.Unlock()
+	fake.PatchStub = stub
+}
+
+func (fake *FakeClient) PatchArgsForCall(i int) (context.Context, runtime.Object, client.Patch, []client.PatchOption) {
+	fake.patchMutex.RLock()
+	defer fake.patchMutex.RUnlock()
+	argsForCall := fake.patchArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+}
+
+func (fake *FakeClient) PatchReturns(result1 error) {
+	fake.patchMutex.Lock()
+	defer fake.patchMutex.Unlock()
+	fake.PatchStub = nil
+	fake.patchReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeClient) PatchReturnsOnCall(i int, result1 error) {
+	fake.patchMutex.Lock()
+	defer fake.patchMutex.Unlock()
+	fake.PatchStub = nil
+	if fake.patchReturnsOnCall == nil {
+		fake.patchReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.patchReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
@@ -387,17 +542,18 @@ func (fake *FakeClient) StatusReturnsOnCall(i int, result1 client.StatusWriter) 
 	}{result1}
 }
 
-func (fake *FakeClient) Update(arg1 context.Context, arg2 runtime.Object) error {
+func (fake *FakeClient) Update(arg1 context.Context, arg2 runtime.Object, arg3 ...client.UpdateOption) error {
 	fake.updateMutex.Lock()
 	ret, specificReturn := fake.updateReturnsOnCall[len(fake.updateArgsForCall)]
 	fake.updateArgsForCall = append(fake.updateArgsForCall, struct {
 		arg1 context.Context
 		arg2 runtime.Object
-	}{arg1, arg2})
-	fake.recordInvocation("Update", []interface{}{arg1, arg2})
+		arg3 []client.UpdateOption
+	}{arg1, arg2, arg3})
+	fake.recordInvocation("Update", []interface{}{arg1, arg2, arg3})
 	fake.updateMutex.Unlock()
 	if fake.UpdateStub != nil {
-		return fake.UpdateStub(arg1, arg2)
+		return fake.UpdateStub(arg1, arg2, arg3...)
 	}
 	if specificReturn {
 		return ret.result1
@@ -412,17 +568,17 @@ func (fake *FakeClient) UpdateCallCount() int {
 	return len(fake.updateArgsForCall)
 }
 
-func (fake *FakeClient) UpdateCalls(stub func(context.Context, runtime.Object) error) {
+func (fake *FakeClient) UpdateCalls(stub func(context.Context, runtime.Object, ...client.UpdateOption) error) {
 	fake.updateMutex.Lock()
 	defer fake.updateMutex.Unlock()
 	fake.UpdateStub = stub
 }
 
-func (fake *FakeClient) UpdateArgsForCall(i int) (context.Context, runtime.Object) {
+func (fake *FakeClient) UpdateArgsForCall(i int) (context.Context, runtime.Object, []client.UpdateOption) {
 	fake.updateMutex.RLock()
 	defer fake.updateMutex.RUnlock()
 	argsForCall := fake.updateArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *FakeClient) UpdateReturns(result1 error) {
@@ -455,10 +611,14 @@ func (fake *FakeClient) Invocations() map[string][][]interface{} {
 	defer fake.createMutex.RUnlock()
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
+	fake.deleteAllOfMutex.RLock()
+	defer fake.deleteAllOfMutex.RUnlock()
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
 	fake.listMutex.RLock()
 	defer fake.listMutex.RUnlock()
+	fake.patchMutex.RLock()
+	defer fake.patchMutex.RUnlock()
 	fake.statusMutex.RLock()
 	defer fake.statusMutex.RUnlock()
 	fake.updateMutex.RLock()

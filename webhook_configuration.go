@@ -3,6 +3,7 @@ package extension
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -18,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	machinerytypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
 	"code.cloudfoundry.org/cf-operator/pkg/kube/util/config"
@@ -34,20 +34,24 @@ type WebhookConfig struct {
 	CaCertificate []byte
 	CaKey         []byte
 
-	setupCertificateName string
-	client               client.Client
-	config               *config.Config
-	generator            credsgen.Generator
+	serviceName, webhookNamespace string
+	setupCertificateName          string
+
+	client    client.Client
+	config    *config.Config
+	generator credsgen.Generator
 }
 
 // NewWebhookConfig returns a new WebhookConfig
-func NewWebhookConfig(c client.Client, config *config.Config, generator credsgen.Generator, configName string, setupCertificateName string) *WebhookConfig {
+func NewWebhookConfig(c client.Client, config *config.Config, generator credsgen.Generator, configName string, setupCertificateName string, serviceName string, webhookNamespace string) *WebhookConfig {
 	return &WebhookConfig{
 		ConfigName:           configName,
 		CertDir:              path.Join(os.TempDir(), setupCertificateName),
 		client:               c,
 		config:               config,
 		generator:            generator,
+		serviceName:          serviceName,
+		webhookNamespace:     webhookNamespace,
 		setupCertificateName: setupCertificateName,
 	}
 }
@@ -109,10 +113,18 @@ func (f *WebhookConfig) setupCertificate(ctx context.Context) error {
 			return err
 		}
 
+		commonName := f.config.WebhookServerHost
+		if len(f.serviceName) > 0 {
+			if len(f.webhookNamespace) == 0 {
+				return errors.New("No webhook namespace defined. If you run the extension under a service, you need to specify the service namespace")
+			}
+			commonName = fmt.Sprintf("%s.%s.svc", f.serviceName, f.webhookNamespace)
+		}
+
 		// Generate Certificate
 		request := credsgen.CertificateGenerationRequest{
 			IsCA:       false,
-			CommonName: f.config.WebhookServerHost,
+			CommonName: commonName,
 			CA: credsgen.Certificate{
 				IsCA:        true,
 				PrivateKey:  caCert.PrivateKey,
@@ -155,7 +167,52 @@ func (f *WebhookConfig) setupCertificate(ctx context.Context) error {
 	return nil
 }
 
-func (f *WebhookConfig) generateWebhookServerConfig(ctx context.Context, webhooks []*admission.Webhook) error {
+func (f *WebhookConfig) GenerateAdmissionWebhook(webhooks []MutatingWebhook) []admissionregistrationv1beta1.Webhook {
+
+	var mutatingHooks []admissionregistrationv1beta1.Webhook
+
+	for _, webhook := range webhooks {
+		var clientConfig admissionregistrationv1beta1.WebhookClientConfig
+		if f.serviceName != "" {
+			p := webhook.GetPath()
+			clientConfig = admissionregistrationv1beta1.WebhookClientConfig{
+				CABundle: f.CaCertificate,
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Name:      f.serviceName,
+					Namespace: f.webhookNamespace,
+					Path:      &p,
+					// FIXME:
+					// client version still doesn't support specify a port for service reference
+					//		Port:      &f.config.WebhookServerPort,
+				},
+			}
+		} else {
+			url := url.URL{
+				Scheme: "https",
+				Host:   net.JoinHostPort(f.config.WebhookServerHost, strconv.Itoa(int(f.config.WebhookServerPort))),
+				Path:   webhook.GetPath(),
+			}
+			urlString := url.String()
+			clientConfig = admissionregistrationv1beta1.WebhookClientConfig{
+				CABundle: f.CaCertificate,
+				URL:      &urlString,
+			}
+		}
+		p := webhook.GetFailurePolicy()
+		wh := admissionregistrationv1beta1.Webhook{
+			Name:              webhook.GetName(),
+			Rules:             webhook.GetRules(),
+			FailurePolicy:     &p,
+			NamespaceSelector: webhook.GetNamespaceSelector(),
+			ClientConfig:      clientConfig,
+		}
+
+		mutatingHooks = append(mutatingHooks, wh)
+	}
+	return mutatingHooks
+}
+
+func (f *WebhookConfig) registerWebhooks(ctx context.Context, webhooks []MutatingWebhook) error {
 	if len(f.CaCertificate) == 0 {
 		return errors.New("Can not create a webhook server config with an empty ca certificate")
 	}
@@ -165,27 +222,7 @@ func (f *WebhookConfig) generateWebhookServerConfig(ctx context.Context, webhook
 			Name:      f.ConfigName,
 			Namespace: f.config.Namespace,
 		},
-	}
-
-	for _, webhook := range webhooks {
-		url := url.URL{
-			Scheme: "https",
-			Host:   net.JoinHostPort(f.config.WebhookServerHost, strconv.Itoa(int(f.config.WebhookServerPort))),
-			Path:   webhook.Path,
-		}
-		urlString := url.String()
-		wh := admissionregistrationv1beta1.Webhook{
-			Name:              webhook.GetName(),
-			Rules:             webhook.Rules,
-			FailurePolicy:     webhook.FailurePolicy,
-			NamespaceSelector: webhook.NamespaceSelector,
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				CABundle: f.CaCertificate,
-				URL:      &urlString,
-			},
-		}
-
-		config.Webhooks = append(config.Webhooks, wh)
+		Webhooks: f.GenerateAdmissionWebhook(webhooks),
 	}
 
 	f.client.Delete(ctx, config)
@@ -213,11 +250,11 @@ func (f *WebhookConfig) writeSecretFiles() error {
 	if err != nil {
 		return err
 	}
-	err = afero.WriteFile(f.config.Fs, path.Join(f.CertDir, "key.pem"), f.Key, 0600)
+	err = afero.WriteFile(f.config.Fs, path.Join(f.CertDir, "tls.key"), f.Key, 0600)
 	if err != nil {
 		return err
 	}
-	err = afero.WriteFile(f.config.Fs, path.Join(f.CertDir, "cert.pem"), f.Certificate, 0644)
+	err = afero.WriteFile(f.config.Fs, path.Join(f.CertDir, "tls.crt"), f.Certificate, 0644)
 	if err != nil {
 		return err
 	}
