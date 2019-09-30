@@ -82,6 +82,7 @@ var _ = Describe("Webhook configuration implementation", func() {
 			Expect(len(admissions)).To(Equal(1))
 			url := "https://127.0.0.1:90/volume"
 			Expect(admissions[0].ClientConfig.URL).To(Equal(&url))
+			Expect(admissions[0].ClientConfig.Service).To(BeNil())
 		})
 	})
 
@@ -101,6 +102,7 @@ var _ = Describe("Webhook configuration implementation", func() {
 			Expect(len(admissions)).To(Equal(1))
 			url := "/volume"
 
+			Expect(admissions[0].ClientConfig.URL).To(BeNil())
 			Expect(admissions[0].ClientConfig.Service.Name).To(Equal("extension"))
 			Expect(admissions[0].ClientConfig.Service.Namespace).To(Equal("cf"))
 			Expect(admissions[0].ClientConfig.Service.Path).To(Equal(&url))
