@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	. "github.com/SUSE/eirinix"
 	catalog "github.com/SUSE/eirinix/testing"
@@ -115,23 +116,23 @@ var _ = Describe("Extension Manager", func() {
 			Expect(eiriniManager.Options.SetupCertificateName).To(Equal("eirini-x-setupcertificate"))
 			eiriniManager.Options.SetupCertificateName = "test-setupcert"
 
-			os.RemoveAll(fmt.Sprintf("/tmp/%s", eiriniManager.Options.SetupCertificateName))
-			defer os.RemoveAll(fmt.Sprintf("/tmp/%s", eiriniManager.Options.SetupCertificateName))
+			os.RemoveAll(filepath.Join(os.TempDir(), eiriniManager.Options.SetupCertificateName))
+			defer os.RemoveAll(filepath.Join(os.TempDir(), eiriniManager.Options.SetupCertificateName))
 
 			Expect(eiriniManager.WebhookServer).To(BeNil())
-			Expect(afero.Exists(afero.NewOsFs(), fmt.Sprintf("/tmp/%s/tls.key", eiriniManager.Options.SetupCertificateName))).To(BeFalse())
+			Expect(afero.Exists(afero.NewOsFs(), filepath.Join(os.TempDir(), eiriniManager.Options.SetupCertificateName, "tls.key"))).To(BeFalse())
 
 			err := eiriniManager.OperatorSetup()
 			Expect(err).ToNot(HaveOccurred())
 
 			err = eiriniManager.RegisterExtensions()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(eiriniManager.WebhookServer.CertDir).To(Equal(fmt.Sprintf("/tmp/%s", eiriniManager.Options.SetupCertificateName)))
+			Expect(eiriniManager.WebhookServer.CertDir).To(Equal(filepath.Join(os.TempDir(), eiriniManager.Options.SetupCertificateName)))
 			//	Expect(eiriniManager.WebhookServer.BootstrapOptions.MutatingWebhookConfigName).To(Equal("eirini-x-mutating-hook-default"))
 			Expect(eiriniManager.WebhookConfig.CertDir).To(Equal(eiriniManager.WebhookServer.CertDir))
 			//	Expect(eiriniManager.WebhookConfig.ConfigName).To(Equal(eiriniManager.WebhookServer.BootstrapOptions.MutatingWebhookConfigName))
 
-			Expect(afero.Exists(afero.NewOsFs(), fmt.Sprintf("/tmp/%s/tls.key", eiriniManager.Options.SetupCertificateName))).To(BeTrue())
+			Expect(afero.Exists(afero.NewOsFs(), filepath.Join(os.TempDir(), eiriniManager.Options.SetupCertificateName, "tls.key"))).To(BeTrue())
 			Expect(generator.GenerateCertificateCallCount()).To(Equal(2)) // Generate CA and certificate
 			Expect(client.CreateCallCount()).To(Equal(2))                 // Persist secret and the webhook config
 		})
