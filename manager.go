@@ -356,8 +356,10 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 		webhooks = append(webhooks, w)
 	}
 
-	if err := m.WebhookConfig.registerWebhooks(m.Context, webhooks); err != nil {
-		return errors.Wrap(err, "generating the webhook server configuration")
+	if m.Options.RegisterWebHook == nil || m.Options.RegisterWebHook != nil && *m.Options.RegisterWebHook {
+		if err := m.WebhookConfig.registerWebhooks(m.Context, webhooks); err != nil {
+			return errors.Wrap(err, "generating the webhook server configuration")
+		}
 	}
 	return nil
 }
