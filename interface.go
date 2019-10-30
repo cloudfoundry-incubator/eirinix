@@ -104,4 +104,7 @@ type Manager interface {
 
 	// Helper to compute the patch from a pod update
 	PatchFromPod(req admission.Request, pod *corev1.Pod) admission.Response
+
+	// Register Extensions to the kubernetes cluster.
+	RegisterExtensions() error
 }
