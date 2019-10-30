@@ -101,6 +101,57 @@ The host will be the listening ip, and the service name refer to the kubernetes 
 Note that you cannot setup a port, and default one is used (443) for specifying a service. You must use 443 as external port in the service, and refer as the internal one to the one specified with `Port`.
 This is a limitation and the `Port` option will refer to the local listener until there will be a kubernetes client api bump of the EiriniX dependencies (cf-operator).
 
+
+### Split Extension registration into two binaries
+
+You can split your extension into two binaries, one which registers the MutatingWebhook to kubernetes, and one which actually runs the MutatingWebhook http server.
+
+To register only the extension, you can run the manager with the same option, but instead of `Start()`, you can call `RegisterExtensions()`. Note, the process will exit and there is no loop, an `error` is returned in case of failure.
+
+```golang
+
+import "github.com/SUSE/eirinix"
+
+func main() {
+    x := eirinix.NewManager(
+            eirinix.ManagerOptions{
+                Namespace:  "eirini",
+                Host:       "0.0.0.0",
+                ServiceName: "listening-extension",
+                WebhookNamespace: "cf",
+        })
+
+    x.AddExtension(&MyExtension{})
+    err := x.RegisterExtensions()
+
+    ...
+}
+
+```
+
+Now we can run the Extension in a separate binary, by disabling the registration of the webhooks by setting `RegisterWebHook` to `*false` inside the `eirinix.ManagerOptions`:
+
+```golang
+
+import "github.com/SUSE/eirinix"
+
+func main() {
+    RegisterWebhooks := false
+    x := eirinix.NewManager(
+            eirinix.ManagerOptions{
+                Namespace:  "eirini",
+                Host:       "0.0.0.0",
+                ServiceName: "listening-extension",
+                WebhookNamespace: "cf",
+                RegisterWebHook: &RegisterWebhooks,
+        })
+
+    x.AddExtension(&MyExtension{})
+    log.Fatal(x.Start())
+}
+
+```
+
 #### Fix for a running cluster
 
 In order to trigger re-generation of the mutating webhook certificate, we have to delete the secrets and the associated mutating webhook:
