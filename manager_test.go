@@ -254,7 +254,7 @@ var _ = Describe("Extension Manager", func() {
 			fakeCorev1.PodsCalls(func(s string) corev1client.PodInterface { return fakePod })
 			_, err := eiriniManager.GenWatcher(fakeCorev1)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(opts.LabelSelector).To(Equal("source_type=APP"))
+			Expect(opts.LabelSelector).To(Equal(LabelSourceType + "=APP"))
 		})
 
 		It("Generates the watcher correctly if not filtering eirini apps", func() {

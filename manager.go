@@ -33,6 +33,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
+const (
+	LabelGUID       = "cloudfoundry.org/guid"
+	LabelSourceType = "cloudfoundry.org/source_type"
+)
+
 // DefaultExtensionManager represent an implementation of Manager
 type DefaultExtensionManager struct {
 	// Extensions is the list of the Extensions that will be registered by the Manager
@@ -217,7 +222,7 @@ func (m *DefaultExtensionManager) GenWatcher(client corev1client.CoreV1Interface
 	opts := metav1.ListOptions{Watch: true}
 
 	if m.Options.FilterEiriniApps != nil && *m.Options.FilterEiriniApps {
-		opts.LabelSelector = "source_type=APP"
+		opts.LabelSelector = LabelSourceType + "=APP"
 	}
 
 	watcher, err := podInterface.Watch(opts)

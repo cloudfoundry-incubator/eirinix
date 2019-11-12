@@ -2,6 +2,6 @@
 set -e
 
 # This should never update your go.mod
-GO111MODULE=off
+export GO111MODULE=off
 go get -u golang.org/x/lint/golint
 go get -u github.com/onsi/ginkgo/ginkgo
