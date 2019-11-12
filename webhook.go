@@ -188,7 +188,7 @@ func (w *DefaultMutatingWebhook) Handle(ctx context.Context, req admission.Reque
 	podCopy := pod.DeepCopy()
 
 	// Patch only applications pod created by Eirini
-	if v, ok := pod.GetLabels()["source_type"]; ok && v == "APP" {
+	if v, ok := pod.GetLabels()[LabelSourceType]; ok && v == "APP" {
 		return w.EiriniExtension.Handle(ctx, w.EiriniExtensionManager, pod, req)
 	}
 
