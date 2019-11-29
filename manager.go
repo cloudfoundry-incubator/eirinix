@@ -34,8 +34,11 @@ import (
 )
 
 const (
-	LabelGUID       = "cloudfoundry.org/guid"
-	LabelSourceType = "cloudfoundry.org/source_type"
+	LabelGUID        = "cloudfoundry.org/guid"
+	LabelVersion     = "cloudfoundry.org/version"
+	LabelAppGUID     = "cloudfoundry.org/app_guid"
+	LabelProcessType = "cloudfoundry.org/process_type"
+	LabelSourceType  = "cloudfoundry.org/source_type"
 )
 
 // DefaultExtensionManager represent an implementation of Manager
