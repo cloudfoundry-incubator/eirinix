@@ -288,7 +288,6 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 	}
 
 	if *m.Options.SetupCertificate {
-
 		if err := m.WebhookConfig.setupCertificate(m.Context); err != nil {
 			return errors.Wrap(err, "setting up the webhook server certificate")
 		}
@@ -348,6 +347,19 @@ func (m *DefaultExtensionManager) SetKubeClient(c corev1client.CoreV1Interface) 
 
 // RegisterExtensions it generates and register webhooks from the Extensions loaded in the Manager
 func (m *DefaultExtensionManager) RegisterExtensions() error {
+	if err := m.generateManager(); err != nil {
+		return err
+	}
+
+	if m.Options.RegisterWebHook == nil || m.Options.RegisterWebHook != nil && *m.Options.RegisterWebHook {
+		if err := m.OperatorSetup(); err != nil {
+			return err
+		}
+	}
+	// Setup Scheme for all resources
+	if err := AddToScheme(m.KubeManager.GetScheme()); err != nil {
+		return err
+	}
 
 	var webhooks []MutatingWebhook
 	for k, e := range m.Extensions {
@@ -372,7 +384,7 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 	return nil
 }
 
-func (m *DefaultExtensionManager) setup() error {
+func (m *DefaultExtensionManager) generateManager() error {
 	m.Credsgen = inmemorycredgen.NewInMemoryGenerator(m.Logger)
 	kubeConn, err := m.GetKubeConnection()
 	if err != nil {
@@ -393,10 +405,6 @@ func (m *DefaultExtensionManager) setup() error {
 	}
 
 	m.KubeManager = mgr
-
-	if err := m.OperatorSetup(); err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -441,18 +449,10 @@ func (m *DefaultExtensionManager) Watch() error {
 func (m *DefaultExtensionManager) Start() error {
 	defer m.Logger.Sync()
 
-	if err := m.setup(); err != nil {
-		return err
-	}
-
-	// Setup Scheme for all resources
-	if err := AddToScheme(m.KubeManager.GetScheme()); err != nil {
-		return err
-	}
-
 	if err := m.RegisterExtensions(); err != nil {
 		return err
 	}
+
 	m.stopChannel = make(chan struct{})
 
 	return m.KubeManager.Start(m.stopChannel)
