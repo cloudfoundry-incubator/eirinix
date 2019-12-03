@@ -345,7 +345,7 @@ func (m *DefaultExtensionManager) SetKubeClient(c corev1client.CoreV1Interface) 
 	m.kubeClient = c
 }
 
-// RegisterExtensions it generates and register webhooks from the Extensions loaded in the Manager
+// RegisterExtensions generates the manager and the operator setup, and loads the extensions to the webhook server
 func (m *DefaultExtensionManager) RegisterExtensions() error {
 	if err := m.generateManager(); err != nil {
 		return err
@@ -360,6 +360,12 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 	if err := AddToScheme(m.KubeManager.GetScheme()); err != nil {
 		return err
 	}
+
+	return m.LoadExtensions()
+}
+
+// LoadExtensions generates and register webhooks from the Extensions added to the Manager
+func (m *DefaultExtensionManager) LoadExtensions() error {
 
 	var webhooks []MutatingWebhook
 	for k, e := range m.Extensions {
