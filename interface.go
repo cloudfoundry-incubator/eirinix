@@ -107,4 +107,7 @@ type Manager interface {
 
 	// Register Extensions to the kubernetes cluster.
 	RegisterExtensions() error
+
+	// Stop stops the manager execution
+	Stop()
 }
