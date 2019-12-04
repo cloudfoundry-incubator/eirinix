@@ -5,16 +5,34 @@ GIT_ROOT="${GIT_ROOT:-$(git rev-parse --show-toplevel)}"
 . "${GIT_ROOT}/bin/include/versioning"
 . "${GIT_ROOT}/.envrc"
 
-if [ -z ${TEST_NAMESPACE+x} ]; then
-  TEST_NAMESPACE="test$(date +%s)"
-  export TEST_NAMESPACE
 
-  remove_namespace() {
-    kubectl delete namespace --wait=false --grace-period=60 "$TEST_NAMESPACE"
-  }
-  trap remove_namespace EXIT
+PLATFORM="${PLATFORM:-linux}"
+ARCH="${ARCH:-amd64}"
 
-  kubectl create namespace "$TEST_NAMESPACE"
-fi
+KIND_PLATFORM="${KIND_PLATFORM:-${PLATFORM}-${ARCH}}"
+KIND_VERSION="${KIND_VERSION:-v0.6.0}"
+KUBECTL_VERSION="${KUBECTL_VERSION:-$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)}"
+
+tmp_dir=$(mktemp -d -t ci-XXXXXXXXXX)
+clean() {
+  "${tmp_dir}"/kind delete cluster || true
+  rm -rf "${tmp_dir}"
+}
+trap clean EXIT
+
+export KUBECONFIG="${tmp_dir}/kubeconfig"
+
+echo "Downloading dependencies (kind $KIND_VERSION kubectl $KUBECTL_VERSION) in ${tmp_dir}"
+wget https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-${KIND_PLATFORM} -O "${tmp_dir}"/kind
+wget https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/${PLATFORM}/${ARCH}/kubectl -O "${tmp_dir}"/kubectl
+chmod +x "${tmp_dir}"/kind
+chmod +x "${tmp_dir}"/kubectl
+
+"${tmp_dir}"/kind create cluster
+
+export PATH="${tmp_dir}:${PATH}"
+
+# Wait for SA to be ready
+n=0; until ((n >= 60)); do kubectl -n default get serviceaccount default -o name && break; n=$((n + 1)); sleep 1; done; ((n < 60))
 
 ginkgo --slowSpecThreshold=50 integration/

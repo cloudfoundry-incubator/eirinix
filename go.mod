@@ -7,6 +7,7 @@ require (
 	github.com/google/martian v2.1.0+incompatible
 	github.com/onsi/ginkgo v1.10.1
 	github.com/onsi/gomega v1.6.0
+	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/pkg/errors v0.8.1
 	github.com/spf13/afero v1.2.2
 	github.com/spf13/cobra v0.0.5
