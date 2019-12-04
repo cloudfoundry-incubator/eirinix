@@ -466,7 +466,7 @@ func (m *DefaultExtensionManager) Start() error {
 
 func (m *DefaultExtensionManager) Stop() {
 	defer m.Logger.Sync()
-	m.stopChannel <- struct{}{}
+	close(m.stopChannel)
 }
 
 func (o *ManagerOptions) getDefaultNamespaceLabel() string {
