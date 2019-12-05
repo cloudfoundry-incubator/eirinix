@@ -67,6 +67,21 @@ func (c *Catalog) IntegrationManager() eirinix.Manager {
 		})
 }
 
+// IntegrationManagerNoRegister returns an Extensions manager which is used by integration tests, which doesn't register extensions again
+func (c *Catalog) IntegrationManagerNoRegister() eirinix.Manager {
+	RegisterWebhooks := false
+	return eirinix.NewManager(
+		eirinix.ManagerOptions{
+			Namespace:        "default",
+			Host:             c.KindHost,
+			Port:             c.ServicePort,
+			KubeConfig:       os.Getenv("KUBECONFIG"),
+			ServiceName:      "eirinix",
+			WebhookNamespace: "default",
+			RegisterWebHook:  &RegisterWebhooks,
+		})
+}
+
 // ServiceYaml returns the yaml of the endpoint + service used to reach eiriniX returned in IntegrationManager
 func (c *Catalog) ServiceYaml() []byte {
 	return []byte(`

@@ -6,10 +6,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/pkg/errors"
-
-	"strings"
 )
 
 func Kubectl(envs []string, args ...string) (string, error) {
@@ -84,7 +83,10 @@ func KubeClean() error {
 	if err != nil {
 		return errors.Wrap(err, "Failed: "+string(str))
 	}
-
+	str, err = Kubectl([]string{}, "delete", "svc", "--all")
+	if err != nil {
+		return errors.Wrap(err, "Failed: "+string(str))
+	}
 	return nil
 }
 func KubeApply(b []byte) error {
