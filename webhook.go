@@ -154,12 +154,10 @@ func (w *DefaultMutatingWebhook) RegisterAdmissionWebHook(server *webhook.Server
 		Handler: w,
 	}
 
-	if opts.ManagerOptions.RegisterWebHook == nil || opts.ManagerOptions.RegisterWebHook != nil && *opts.ManagerOptions.RegisterWebHook {
-		if server == nil {
-			return errors.New("The Mutating webhook needs a Webhook server to register to")
-		}
-		server.Register(w.Path, w.Webhook)
+	if server == nil {
+		return errors.New("The Mutating webhook needs a Webhook server to register to")
 	}
+	server.Register(w.Path, w.Webhook)
 	return nil
 }
 

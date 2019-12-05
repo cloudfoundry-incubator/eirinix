@@ -8,16 +8,14 @@ import (
 	"strconv"
 	"time"
 
-	"go.uber.org/zap"
-
-	inmemorycredgen "code.cloudfoundry.org/cf-operator/pkg/credsgen/in_memory_generator"
-
 	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
+	inmemorycredgen "code.cloudfoundry.org/cf-operator/pkg/credsgen/in_memory_generator"
 	kubeConfig "code.cloudfoundry.org/cf-operator/pkg/kube/config"
 	"code.cloudfoundry.org/cf-operator/pkg/kube/util/config"
 	"github.com/SUSE/eirinix/util/ctxlog"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
+	"go.uber.org/zap"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -351,11 +349,10 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 		return err
 	}
 
-	if m.Options.RegisterWebHook == nil || m.Options.RegisterWebHook != nil && *m.Options.RegisterWebHook {
-		if err := m.OperatorSetup(); err != nil {
-			return err
-		}
+	if err := m.OperatorSetup(); err != nil {
+		return err
 	}
+
 	// Setup Scheme for all resources
 	if err := AddToScheme(m.KubeManager.GetScheme()); err != nil {
 		return err
