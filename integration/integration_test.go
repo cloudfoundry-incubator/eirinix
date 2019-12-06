@@ -3,7 +3,6 @@ package integration_test
 import (
 	//. "github.com/SUSE/eirinix"
 
-	"fmt"
 	"time"
 
 	catalog "github.com/SUSE/eirinix/testing"
@@ -51,7 +50,6 @@ var _ = Describe("EiriniX", func() {
 			// At some point the extension should register
 			Eventually(func() string {
 				str, err := catalog.Kubectl([]string{}, "get", "mutatingwebhookconfiguration")
-				fmt.Println(str)
 				Expect(err).ToNot(HaveOccurred())
 
 				return str
