@@ -11,9 +11,9 @@ import (
 )
 
 var _ = Describe("EiriniX", func() {
-	Context("With a fake pod", func() {
+	Context("without an EiriniX extension running", func() {
 		c := catalog.NewCatalog()
-		It("Without an EiriniX extension running, it has only one environment variable", func() {
+		It("has only one environment variable", func() {
 			app, err := c.StartEiriniApp()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -34,7 +34,7 @@ var _ = Describe("EiriniX", func() {
 	})
 
 	Context("With a simple extension running", func() {
-		It("Starts, register the extension which injects a variable into the pod definition", func() {
+		It("injects a variable into the pod definition", func() {
 			c := catalog.NewCatalog()
 			m := c.IntegrationManager()
 			e := &catalog.EditEnvExtension{}
