@@ -125,7 +125,7 @@ var _ = Describe("Extension Manager", func() {
 			err := eiriniManager.OperatorSetup()
 			Expect(err).ToNot(HaveOccurred())
 
-			err = eiriniManager.RegisterExtensions()
+			err = eiriniManager.LoadExtensions()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(eiriniManager.WebhookServer.CertDir).To(Equal(filepath.Join(os.TempDir(), eiriniManager.Options.SetupCertificateName)))
 			//	Expect(eiriniManager.WebhookServer.BootstrapOptions.MutatingWebhookConfigName).To(Equal("eirini-x-mutating-hook-default"))
@@ -149,7 +149,7 @@ var _ = Describe("Extension Manager", func() {
 		err := eiriniManager.OperatorSetup()
 		Expect(err).ToNot(HaveOccurred())
 
-		err = eiriniManager.RegisterExtensions()
+		err = eiriniManager.LoadExtensions()
 		Expect(err).ToNot(HaveOccurred())
 
 	})
@@ -184,7 +184,7 @@ var _ = Describe("Extension Manager", func() {
 		It("does not overwrite the existing secret", func() {
 			err := eiriniManager.OperatorSetup()
 			Expect(err).ToNot(HaveOccurred())
-			err = eiriniManager.RegisterExtensions()
+			err = eiriniManager.LoadExtensions()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(client.CreateCallCount()).To(Equal(1))                 // webhook config
 			Expect(generator.GenerateCertificateCallCount()).To(Equal(0)) // Generate CA and certificate
@@ -207,7 +207,7 @@ var _ = Describe("Extension Manager", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			eiriniManager.AddExtension(eirinixcatalog.SimpleExtension())
-			err = eiriniManager.RegisterExtensions()
+			err = eiriniManager.LoadExtensions()
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(Manager.ListExtensions()).ToNot(BeEmpty())
@@ -281,7 +281,7 @@ var _ = Describe("Extension Manager", func() {
 			eiriniServiceManager.AddExtension(eirinixcatalog.SimpleExtension())
 			err := eiriniServiceManager.OperatorSetup()
 			Expect(err).ToNot(HaveOccurred())
-			err = eiriniServiceManager.RegisterExtensions()
+			err = eiriniServiceManager.LoadExtensions()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(eiriniServiceManager.ListExtensions())).To(Equal(1))
 		})

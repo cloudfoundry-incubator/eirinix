@@ -3,21 +3,73 @@ package extension_test
 import (
 	"context"
 
+	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen"
+	gfakes "code.cloudfoundry.org/cf-operator/pkg/credsgen/fakes"
+	"code.cloudfoundry.org/cf-operator/testing"
 	. "github.com/SUSE/eirinix"
 	catalog "github.com/SUSE/eirinix/testing"
+	cfakes "github.com/SUSE/eirinix/testing/fakes"
 	. "github.com/onsi/ginkgo"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
 	. "github.com/onsi/gomega"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 var _ = Describe("Webhook implementation", func() {
+	var (
+		manager                             *cfakes.FakeManager
+		client                              *cfakes.FakeClient
+		ctx                                 context.Context
+		generator                           *gfakes.FakeGenerator
+		eirinixcatalog                      catalog.Catalog
+		ServiceManager, Manager             Manager
+		eiriniServiceManager, eiriniManager *DefaultExtensionManager
+		w                                   MutatingWebhook
+	)
+
+	BeforeEach(func() {
+		eirinixcatalog = catalog.NewCatalog()
+		ServiceManager = eirinixcatalog.SimpleManagerService()
+
+		eiriniServiceManager, _ = ServiceManager.(*DefaultExtensionManager)
+		Manager = eirinixcatalog.SimpleManager()
+		eiriniManager, _ = Manager.(*DefaultExtensionManager)
+		AddToScheme(scheme.Scheme)
+		client = &cfakes.FakeClient{}
+		restMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
+		restMapper.Add(schema.GroupVersionKind{Group: "", Kind: "Pod", Version: "v1"}, meta.RESTScopeNamespace)
+
+		manager = &cfakes.FakeManager{}
+		manager.GetSchemeReturns(scheme.Scheme)
+		manager.GetClientReturns(client)
+		manager.GetRESTMapperReturns(restMapper)
+		manager.GetWebhookServerReturns(&webhook.Server{})
+
+		generator = &gfakes.FakeGenerator{}
+		generator.GenerateCertificateReturns(credsgen.Certificate{Certificate: []byte("thecert")}, nil)
+
+		ctx = testing.NewContext()
+
+		eiriniManager.Context = ctx
+		eiriniManager.KubeManager = manager
+		eiriniManager.Options.Namespace = "eirini"
+		eiriniManager.Credsgen = generator
+		eiriniManager.GenWebHookServer()
+
+		eiriniServiceManager.Context = ctx
+		eiriniServiceManager.KubeManager = manager
+		eiriniServiceManager.Options.Namespace = "eirini"
+		eiriniServiceManager.Credsgen = generator
+		w = NewWebhook(eirinixcatalog.SimpleExtension(), eiriniManager)
+
+	})
 
 	Context("With a fake extension", func() {
-		c := catalog.NewCatalog()
-		m := c.SimpleManager()
-		w := NewWebhook(c.SimpleExtension(), m)
+
 		It("It errors without a manager", func() {
 			err := w.RegisterAdmissionWebHook(nil, WebhookOptions{ID: "volume", ManagerOptions: ManagerOptions{Namespace: "eirini", OperatorFingerprint: "eirini-x"}})
 			Expect(err.Error()).To(Equal("No failure policy set"))
@@ -38,6 +90,7 @@ var _ = Describe("Webhook implementation", func() {
 		})
 
 		It("It does generate correctly the webhook details", func() {
+
 			err := w.RegisterAdmissionWebHook(nil, WebhookOptions{ID: "volume", ManagerOptions: ManagerOptions{Namespace: "eirini", OperatorFingerprint: "eirini-x"}})
 			Expect(err.Error()).To(Equal("No failure policy set"))
 			failurePolicy := admissionregistrationv1beta1.Fail
@@ -46,11 +99,9 @@ var _ = Describe("Webhook implementation", func() {
 			Expect(err.Error()).To(Equal("The Mutating webhook needs a Webhook server to register to"))
 
 			Expect(w.GetFailurePolicy()).To(Equal(failurePolicy))
-			register := false
-			err = w.RegisterAdmissionWebHook(nil, WebhookOptions{ID: "volume", ManagerOptions: ManagerOptions{
 
+			err = w.RegisterAdmissionWebHook(eiriniManager.WebhookServer, WebhookOptions{ID: "volume", ManagerOptions: ManagerOptions{
 				FailurePolicy:       &failurePolicy,
-				RegisterWebHook:     &register,
 				Namespace:           "eirini",
 				OperatorFingerprint: "eirini-x"}})
 			Expect(err).ToNot(HaveOccurred())

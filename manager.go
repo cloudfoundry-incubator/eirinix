@@ -8,16 +8,14 @@ import (
 	"strconv"
 	"time"
 
-	"go.uber.org/zap"
-
-	inmemorycredgen "code.cloudfoundry.org/cf-operator/pkg/credsgen/in_memory_generator"
-
 	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
+	inmemorycredgen "code.cloudfoundry.org/cf-operator/pkg/credsgen/in_memory_generator"
 	kubeConfig "code.cloudfoundry.org/cf-operator/pkg/kube/config"
 	"code.cloudfoundry.org/cf-operator/pkg/kube/util/config"
 	"github.com/SUSE/eirinix/util/ctxlog"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
+	"go.uber.org/zap"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -288,7 +286,6 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 	}
 
 	if *m.Options.SetupCertificate {
-
 		if err := m.WebhookConfig.setupCertificate(m.Context); err != nil {
 			return errors.Wrap(err, "setting up the webhook server certificate")
 		}
@@ -346,8 +343,26 @@ func (m *DefaultExtensionManager) SetKubeClient(c corev1client.CoreV1Interface) 
 	m.kubeClient = c
 }
 
-// RegisterExtensions it generates and register webhooks from the Extensions loaded in the Manager
+// RegisterExtensions generates the manager and the operator setup, and loads the extensions to the webhook server
 func (m *DefaultExtensionManager) RegisterExtensions() error {
+	if err := m.generateManager(); err != nil {
+		return err
+	}
+
+	if err := m.OperatorSetup(); err != nil {
+		return err
+	}
+
+	// Setup Scheme for all resources
+	if err := AddToScheme(m.KubeManager.GetScheme()); err != nil {
+		return err
+	}
+
+	return m.LoadExtensions()
+}
+
+// LoadExtensions generates and register webhooks from the Extensions added to the Manager
+func (m *DefaultExtensionManager) LoadExtensions() error {
 
 	var webhooks []MutatingWebhook
 	for k, e := range m.Extensions {
@@ -372,7 +387,7 @@ func (m *DefaultExtensionManager) RegisterExtensions() error {
 	return nil
 }
 
-func (m *DefaultExtensionManager) setup() error {
+func (m *DefaultExtensionManager) generateManager() error {
 	m.Credsgen = inmemorycredgen.NewInMemoryGenerator(m.Logger)
 	kubeConn, err := m.GetKubeConnection()
 	if err != nil {
@@ -393,10 +408,6 @@ func (m *DefaultExtensionManager) setup() error {
 	}
 
 	m.KubeManager = mgr
-
-	if err := m.OperatorSetup(); err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -441,18 +452,10 @@ func (m *DefaultExtensionManager) Watch() error {
 func (m *DefaultExtensionManager) Start() error {
 	defer m.Logger.Sync()
 
-	if err := m.setup(); err != nil {
-		return err
-	}
-
-	// Setup Scheme for all resources
-	if err := AddToScheme(m.KubeManager.GetScheme()); err != nil {
-		return err
-	}
-
 	if err := m.RegisterExtensions(); err != nil {
 		return err
 	}
+
 	m.stopChannel = make(chan struct{})
 
 	return m.KubeManager.Start(m.stopChannel)
@@ -460,7 +463,7 @@ func (m *DefaultExtensionManager) Start() error {
 
 func (m *DefaultExtensionManager) Stop() {
 	defer m.Logger.Sync()
-	m.stopChannel <- struct{}{}
+	close(m.stopChannel)
 }
 
 func (o *ManagerOptions) getDefaultNamespaceLabel() string {

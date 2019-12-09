@@ -1,22 +1,21 @@
 package extension_test
 
 import (
-	. "github.com/SUSE/eirinix"
-	catalog "github.com/SUSE/eirinix/testing"
-	cfakes "github.com/SUSE/eirinix/testing/fakes"
-	. "github.com/onsi/ginkgo"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"context"
 
 	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen"
 	gfakes "code.cloudfoundry.org/cf-operator/pkg/credsgen/fakes"
 	"code.cloudfoundry.org/cf-operator/testing"
-	"context"
+	. "github.com/SUSE/eirinix"
+	catalog "github.com/SUSE/eirinix/testing"
+	cfakes "github.com/SUSE/eirinix/testing/fakes"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Webhook configuration implementation", func() {
@@ -59,6 +58,7 @@ var _ = Describe("Webhook configuration implementation", func() {
 		eiriniManager.KubeManager = manager
 		eiriniManager.Options.Namespace = "eirini"
 		eiriniManager.Credsgen = generator
+		eiriniManager.GenWebHookServer()
 
 		eiriniServiceManager.Context = ctx
 		eiriniServiceManager.KubeManager = manager
@@ -69,15 +69,11 @@ var _ = Describe("Webhook configuration implementation", func() {
 	Context("With a fake extension with a Host specified", func() {
 		It("generates correctly services metadata", func() {
 			w := NewWebhook(eirinixcatalog.SimpleExtension(), eiriniManager)
-			register := false
-			err := w.RegisterAdmissionWebHook(nil, WebhookOptions{ID: "volume", ManagerOptions: ManagerOptions{
-
+			err := w.RegisterAdmissionWebHook(eiriniManager.WebhookServer, WebhookOptions{ID: "volume", ManagerOptions: ManagerOptions{
 				FailurePolicy:       &failurePolicy,
-				RegisterWebHook:     &register,
 				Namespace:           "eirini",
 				OperatorFingerprint: "eirini-x"}})
 			Expect(err).ToNot(HaveOccurred())
-			eiriniManager.GenWebHookServer()
 			admissions := eiriniManager.WebhookConfig.GenerateAdmissionWebhook([]MutatingWebhook{w})
 			Expect(len(admissions)).To(Equal(1))
 			url := "https://127.0.0.1:90/volume"
@@ -89,11 +85,8 @@ var _ = Describe("Webhook configuration implementation", func() {
 	Context("With a fake extension with a Service", func() {
 		It("generates correctly services metadata", func() {
 			w := NewWebhook(eirinixcatalog.SimpleExtension(), eiriniServiceManager)
-			register := false
-			err := w.RegisterAdmissionWebHook(nil, WebhookOptions{ID: "volume", ManagerOptions: ManagerOptions{
-
+			err := w.RegisterAdmissionWebHook(eiriniManager.WebhookServer, WebhookOptions{ID: "volume", ManagerOptions: ManagerOptions{
 				FailurePolicy:       &failurePolicy,
-				RegisterWebHook:     &register,
 				Namespace:           "eirini",
 				OperatorFingerprint: "eirini-x"}})
 			Expect(err).ToNot(HaveOccurred())
