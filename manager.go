@@ -162,8 +162,8 @@ func NewManager(opts ManagerOptions) Manager {
 	}
 
 	if opts.SetupCertificate == nil {
-		setuCertificate := true
-		opts.SetupCertificate = &setuCertificate
+		setupCertificate := true
+		opts.SetupCertificate = &setupCertificate
 	}
 
 	return &DefaultExtensionManager{Options: opts, Logger: opts.Logger}
