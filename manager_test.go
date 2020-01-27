@@ -286,4 +286,28 @@ var _ = Describe("Extension Manager", func() {
 			Expect(len(eiriniServiceManager.ListExtensions())).To(Equal(1))
 		})
 	})
+
+	Context("Watch() when channel is closed", func() {
+		It("returns WatcherChannelClosedError", func() {
+			eiriniManager.SetKubeConnection(&rest.Config{})
+			fakeCorev1 := &cfakes.FakeCoreV1Interface{}
+			fakePod := &cfakes.FakePodInterface{}
+			fakeWatch := &cfakes.FakeInterface{}
+			testChan := make(chan watch.Event)
+			fakeWatch.ResultChanReturns(testChan)
+			fakePod.WatchCalls(func(m metav1.ListOptions) (watch.Interface, error) {
+				return fakeWatch, nil
+			})
+			fakeCorev1.PodsCalls(func(s string) corev1client.PodInterface { return fakePod })
+			//_, err := eiriniManager.GenWatcher(fakeCorev1)
+			eiriniManager.SetKubeClient(fakeCorev1)
+			//Expect(err).ToNot(HaveOccurred())
+			close(testChan)
+			err := eiriniManager.Watch()
+			Expect(err).To(HaveOccurred())
+			_, ok := err.(*WatcherChannelClosedError)
+			fmt.Println(err)
+			Expect(ok).To(BeTrue())
+		})
+	})
 })

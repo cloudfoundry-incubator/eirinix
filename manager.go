@@ -39,6 +39,18 @@ const (
 	LabelSourceType  = "cloudfoundry.org/source_type"
 )
 
+// WatcherChannelClosedError can be used to filter for "watcher channel closed"
+// in a block like this:
+// if err, ok := err.(*extension.WatcherChannelClosedError); ok { // Do things }
+type WatcherChannelClosedError struct {
+	err string
+}
+
+// Error implements the error Interface for WatcherChannelClosedError
+func (e *WatcherChannelClosedError) Error() string {
+	return e.err
+}
+
 // DefaultExtensionManager represent an implementation of Manager
 type DefaultExtensionManager struct {
 	// Extensions is the list of the Extensions that will be registered by the Manager
@@ -445,7 +457,7 @@ func (m *DefaultExtensionManager) Watch() error {
 
 	m.ReadWatcherEvent(watcher)
 
-	return errors.New("Watcher channel closed")
+	return &WatcherChannelClosedError{"Watcher channel closed"}
 }
 
 // Start starts the Manager infinite loop, and returns an error on failure
