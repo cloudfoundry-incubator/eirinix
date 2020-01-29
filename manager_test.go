@@ -6,13 +6,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
+	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen"
+	gfakes "code.cloudfoundry.org/cf-operator/pkg/credsgen/fakes"
+	"code.cloudfoundry.org/cf-operator/testing"
 	. "github.com/SUSE/eirinix"
 	catalog "github.com/SUSE/eirinix/testing"
 	cfakes "github.com/SUSE/eirinix/testing/fakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/afero"
+
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -23,14 +28,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
+	watchtools "k8s.io/client-go/tools/watch"
+
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	crc "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
-	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen"
-	gfakes "code.cloudfoundry.org/cf-operator/pkg/credsgen/fakes"
-	"code.cloudfoundry.org/cf-operator/testing"
 )
 
 var _ = Describe("Extension Manager", func() {
@@ -246,15 +249,35 @@ var _ = Describe("Extension Manager", func() {
 			Expect(*eiriniManager.Options.FilterEiriniApps).To(Equal(true))
 			fakeCorev1 := &cfakes.FakeCoreV1Interface{}
 			fakePod := &cfakes.FakePodInterface{}
-			opts := &metav1.ListOptions{}
+			fakeWatch := &cfakes.FakeInterface{}
+			var label string
+
 			fakePod.WatchCalls(func(m metav1.ListOptions) (watch.Interface, error) {
-				opts = &m
-				return nil, nil
+				label = m.LabelSelector
+				return fakeWatch, nil
 			})
 			fakeCorev1.PodsCalls(func(s string) corev1client.PodInterface { return fakePod })
-			_, err := eiriniManager.GenWatcher(fakeCorev1)
+
+			w, err := eiriniManager.GenWatcher(fakeCorev1)
+			cw, ok := w.(*watchtools.RetryWatcher)
+			// Give the watcher a chance to get to sending events (blocking)
+			time.Sleep(10 * time.Millisecond)
+
+			cw.Stop()
+
+			select {
+			case <-cw.Done():
+				break
+			case <-time.After(10 * time.Millisecond):
+
+			}
+
+			// RetryWatcher result channel should be closed
+			_, ok = <-cw.ResultChan()
+
+			Expect(ok).ToNot(BeTrue())
+			Expect(label).To(Equal(LabelSourceType + "=APP"))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(opts.LabelSelector).To(Equal(LabelSourceType + "=APP"))
 		})
 
 		It("Generates the watcher correctly if not filtering eirini apps", func() {
@@ -263,15 +286,36 @@ var _ = Describe("Extension Manager", func() {
 			eiriniManager.Options.FilterEiriniApps = &filtering
 			fakeCorev1 := &cfakes.FakeCoreV1Interface{}
 			fakePod := &cfakes.FakePodInterface{}
-			opts := &metav1.ListOptions{}
+			fakeWatch := &cfakes.FakeInterface{}
+			var label string
+
 			fakePod.WatchCalls(func(m metav1.ListOptions) (watch.Interface, error) {
-				opts = &m
-				return nil, nil
+				label = m.LabelSelector
+				return fakeWatch, nil
 			})
 			fakeCorev1.PodsCalls(func(s string) corev1client.PodInterface { return fakePod })
-			_, err := eiriniManager.GenWatcher(fakeCorev1)
+
+			w, err := eiriniManager.GenWatcher(fakeCorev1)
+			cw, ok := w.(*watchtools.RetryWatcher)
+			// Give the watcher a chance to get to sending events (blocking)
+			time.Sleep(10 * time.Millisecond)
+
+			cw.Stop()
+
+			select {
+			case <-cw.Done():
+				break
+			case <-time.After(10 * time.Millisecond):
+
+			}
+
+			// RetryWatcher result channel should be closed
+			_, ok = <-cw.ResultChan()
+
+			Expect(ok).ToNot(BeTrue())
+			Expect(label).To(Equal(""))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(opts.LabelSelector).To(Equal(""))
+
 		})
 	})
 
