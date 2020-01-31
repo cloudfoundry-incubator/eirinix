@@ -5,9 +5,12 @@ import (
 
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	catalog "github.com/SUSE/eirinix/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/watch"
 )
 
 var _ = Describe("EiriniX", func() {
@@ -130,6 +133,177 @@ var _ = Describe("EiriniX", func() {
 			Expect(app.Pod.Spec.Containers[0].Envs).Should(ContainElement(catalog.ContainerEnv{Name: "FAKE_APP", Value: "fake content"}))
 			Expect(app.Delete()).ToNot(HaveOccurred())
 
+		})
+	})
+
+	Context("With a watcher for Eirini Apps only", func() {
+		It("can see pods in the namespace", func() {
+			defer catalog.KubeClean() // Be sure to cleanup everything
+
+			// Check nothing is left
+			str, err := catalog.Kubectl([]string{}, "get", "mutatingwebhookconfiguration")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(str).To(ContainSubstring("No resources found in default namespace"))
+
+			c := catalog.NewCatalog()
+			m := c.IntegrationManagerFiltered(true, "default")
+
+			resultChan := make(chan watch.Event, 3) // Test will check first 3 events
+
+			w := c.SimpleWatcherChannel(resultChan)
+
+			m.AddWatcher(w)
+
+			go m.Watch() // Start the watchers
+
+			// we shouldn't have any webhook registered
+			str, err = catalog.Kubectl([]string{}, "get", "mutatingwebhookconfiguration")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(str).To(ContainSubstring("No resources found in default namespace"))
+
+			// Generate 3 events (ADD,MODIFIED,MODIFIED)
+			app, err := c.StartEiriniApp()
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				runs, err := app.IsRunning()
+				Expect(err).ToNot(HaveOccurred())
+				return runs
+			}, time.Duration(60*time.Second), time.Duration(5*time.Second)).Should(BeTrue())
+
+			Expect(app.Delete()).ToNot(HaveOccurred()) // Delete the app (multiple events MODIFIED should be triggered)
+
+			time.Sleep(time.Second * 5) // Give time to the watcher to process the events
+
+			extension, _ := w.(*catalog.SimpleWatchChannel)
+			// Consume the recorded event
+			for _, ev := range []string{"ADDED", "MODIFIED", "MODIFIED"} {
+				event, ok := <-extension.Received
+
+				Expect(string(event.Type)).To(Equal(ev))
+				Expect(ok).To(BeTrue())
+
+				pod, ok := event.Object.(*corev1.Pod)
+				Expect(ok).To(BeTrue())
+				Expect(pod.GetName()).To(Equal(app.Name))
+			}
+
+			m.Stop()
+		})
+	})
+
+	Context("With a staging app", func() {
+		It("can see pods in the namespace", func() {
+			testns := "watchertest"
+			defer func() {
+				_, err := catalog.Kubectl([]string{}, "delete", "namespace", testns)
+				Expect(err).ToNot(HaveOccurred())
+			}()
+
+			_, err := catalog.Kubectl([]string{}, "create", "namespace", testns)
+			Expect(err).ToNot(HaveOccurred())
+
+			c := catalog.NewCatalog()
+			m := c.IntegrationManagerFiltered(false, testns)
+			resultChan := make(chan watch.Event, 3) // Test has 3 events
+
+			w := c.SimpleWatcherChannel(resultChan)
+
+			m.AddWatcher(w)
+
+			go m.Watch() // Start the watchers
+
+			// Generate 3 events (ADD,MODIFIED,MODIFIED)
+			app, err := c.StartEiriniStagingAppInNamespace(testns)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				runs, err := app.IsRunning()
+				Expect(err).ToNot(HaveOccurred())
+				return runs
+			}, time.Duration(60*time.Second), time.Duration(5*time.Second)).Should(BeTrue())
+
+			Expect(app.Delete()).ToNot(HaveOccurred()) // Delete the app (multiple events MODIFIED should be triggered)
+
+			time.Sleep(time.Second * 5) // Give time to the watcher to process the events
+
+			extension, _ := w.(*catalog.SimpleWatchChannel)
+			// Consume the recorded event
+			for _, ev := range []string{"ADDED", "MODIFIED", "MODIFIED"} {
+				event, ok := <-extension.Received
+				Expect(ok).To(BeTrue())
+
+				pod, ok := event.Object.(*corev1.Pod)
+				Expect(ok).To(BeTrue())
+				Expect(pod.GetName()).To(Equal(app.Name))
+
+				Expect(string(event.Type)).To(Equal(ev))
+				Expect(ok).To(BeTrue())
+			}
+
+			m.Stop()
+		})
+	})
+
+	Context("With a staging and an Eirini app", func() {
+		It("can see only Eirini pods in the namespace", func() {
+			testns := "watchertest2"
+
+			defer func() {
+				_, err := catalog.Kubectl([]string{}, "delete", "namespace", testns)
+				Expect(err).ToNot(HaveOccurred())
+			}()
+
+			_, err := catalog.Kubectl([]string{}, "create", "namespace", testns)
+			Expect(err).ToNot(HaveOccurred())
+			// Check nothing is left
+			str, err := catalog.Kubectl([]string{}, "get", "mutatingwebhookconfiguration")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(str).To(ContainSubstring("No resources found in default namespace"))
+
+			c := catalog.NewCatalog()
+			m := c.IntegrationManagerFiltered(true, testns)
+			resultChan := make(chan watch.Event, 10) // Test has 3 events
+
+			w := c.SimpleWatcherChannel(resultChan)
+
+			m.AddWatcher(w)
+
+			go m.Watch() // Start the watchers
+
+			staging, err := c.StartEiriniStagingAppInNamespace(testns)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				runs, err := staging.IsRunning()
+				Expect(err).ToNot(HaveOccurred())
+				return runs
+			}, time.Duration(60*time.Second), time.Duration(5*time.Second)).Should(BeTrue())
+
+			standardapp, err := c.StartEiriniAppInNamespace(testns)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				runs, err := standardapp.IsRunning()
+				Expect(err).ToNot(HaveOccurred())
+				return runs
+			}, time.Duration(60*time.Second), time.Duration(5*time.Second)).Should(BeTrue())
+
+			time.Sleep(time.Second * 5) // Give time to the watcher to process the events
+
+			extension, _ := w.(*catalog.SimpleWatchChannel)
+			// Consume the recorded event - and there should be only one
+
+			// Consume the recorded event
+			for _, ev := range []string{"ADDED", "MODIFIED", "MODIFIED"} {
+				event, ok := <-extension.Received
+				Expect(ok).To(BeTrue())
+
+				pod, ok := event.Object.(*corev1.Pod)
+				Expect(ok).To(BeTrue())
+				Expect(pod.GetName()).To(Equal(standardapp.Name))
+
+				Expect(string(event.Type)).To(Equal(ev))
+				Expect(ok).To(BeTrue())
+			}
+
+			m.Stop()
 		})
 	})
 })
