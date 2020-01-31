@@ -287,7 +287,7 @@ var _ = Describe("Extension Manager", func() {
 			fakeCorev1 := &cfakes.FakeCoreV1Interface{}
 			fakePod := &cfakes.FakePodInterface{}
 			fakeWatch := &cfakes.FakeInterface{}
-			var label string
+			label := "foo"
 
 			fakePod.WatchCalls(func(m metav1.ListOptions) (watch.Interface, error) {
 				label = m.LabelSelector
@@ -315,7 +315,6 @@ var _ = Describe("Extension Manager", func() {
 			Expect(ok).ToNot(BeTrue())
 			Expect(label).To(Equal(""))
 			Expect(err).ToNot(HaveOccurred())
-
 		})
 	})
 

@@ -7,15 +7,31 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	extension "github.com/SUSE/eirinix"
 	catalog "github.com/SUSE/eirinix/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	"k8s.io/apimachinery/pkg/watch"
 )
 
 var _ = Describe("EiriniX", func() {
+
+	var (
+		c catalog.Catalog
+		m extension.Manager
+		e *catalog.EditEnvExtension
+	)
+
+	BeforeEach(func() {
+		catalog.KubeClean() // Be sure to cleanup everything
+		c = catalog.NewCatalog()
+		m = c.IntegrationManager()
+		e = &catalog.EditEnvExtension{}
+
+	})
+
 	Context("without an EiriniX extension running", func() {
-		c := catalog.NewCatalog()
 		It("has only one environment variable", func() {
 			app, err := c.StartEiriniApp()
 			Expect(err).ToNot(HaveOccurred())
@@ -38,9 +54,6 @@ var _ = Describe("EiriniX", func() {
 
 	Context("With a simple extension running", func() {
 		It("injects a variable into the pod definition", func() {
-			c := catalog.NewCatalog()
-			m := c.IntegrationManager()
-			e := &catalog.EditEnvExtension{}
 
 			err := c.RegisterEiriniXService()
 			Expect(err).ToNot(HaveOccurred())
@@ -87,16 +100,10 @@ var _ = Describe("EiriniX", func() {
 
 	Context("With a simple extension running", func() {
 		It("Register the extension", func() {
-			defer catalog.KubeClean() // Be sure to cleanup everything
-
 			// Check nothing is left
 			str, err := catalog.Kubectl([]string{}, "get", "mutatingwebhookconfiguration")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(str).To(ContainSubstring("No resources found in default namespace"))
-
-			c := catalog.NewCatalog()
-			m := c.IntegrationManager()
-			e := &catalog.EditEnvExtension{}
 
 			err = c.RegisterEiriniXService()
 			Expect(err).ToNot(HaveOccurred())
@@ -137,23 +144,20 @@ var _ = Describe("EiriniX", func() {
 	})
 
 	Context("With a watcher for Eirini Apps only", func() {
-		It("can see pods in the namespace", func() {
-			defer catalog.KubeClean() // Be sure to cleanup everything
+		BeforeEach(func() {
+			m = c.IntegrationManagerFiltered(true, "default")
+		})
 
+		It("can see pods in the namespace", func() {
 			// Check nothing is left
 			str, err := catalog.Kubectl([]string{}, "get", "mutatingwebhookconfiguration")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(str).To(ContainSubstring("No resources found in default namespace"))
 
-			c := catalog.NewCatalog()
-			m := c.IntegrationManagerFiltered(true, "default")
-
 			resultChan := make(chan watch.Event, 3) // Test will check first 3 events
-
-			w := c.SimpleWatcherChannel(resultChan)
+			w := c.SimpleWatcherWithChannel(resultChan)
 
 			m.AddWatcher(w)
-
 			go m.Watch() // Start the watchers
 
 			// we shouldn't have any webhook registered
@@ -174,7 +178,7 @@ var _ = Describe("EiriniX", func() {
 
 			time.Sleep(time.Second * 5) // Give time to the watcher to process the events
 
-			extension, _ := w.(*catalog.SimpleWatchChannel)
+			extension, _ := w.(*catalog.SimpleWatcherWithChannel)
 			// Consume the recorded event
 			for _, ev := range []string{"ADDED", "MODIFIED", "MODIFIED"} {
 				event, ok := <-extension.Received
@@ -186,14 +190,19 @@ var _ = Describe("EiriniX", func() {
 				Expect(ok).To(BeTrue())
 				Expect(pod.GetName()).To(Equal(app.Name))
 			}
-
 			m.Stop()
 		})
 	})
 
-	Context("With a staging app", func() {
-		It("can see pods in the namespace", func() {
-			testns := "watchertest"
+	Context("With a watcher that doesn't filter pods", func() {
+		testns := "watchertest"
+
+		BeforeEach(func() {
+			m = c.IntegrationManagerFiltered(false, testns)
+		})
+
+		It("can see all pods in the namespace", func() {
+
 			defer func() {
 				_, err := catalog.Kubectl([]string{}, "delete", "namespace", testns)
 				Expect(err).ToNot(HaveOccurred())
@@ -202,11 +211,8 @@ var _ = Describe("EiriniX", func() {
 			_, err := catalog.Kubectl([]string{}, "create", "namespace", testns)
 			Expect(err).ToNot(HaveOccurred())
 
-			c := catalog.NewCatalog()
-			m := c.IntegrationManagerFiltered(false, testns)
 			resultChan := make(chan watch.Event, 3) // Test has 3 events
-
-			w := c.SimpleWatcherChannel(resultChan)
+			w := c.SimpleWatcherWithChannel(resultChan)
 
 			m.AddWatcher(w)
 
@@ -225,7 +231,7 @@ var _ = Describe("EiriniX", func() {
 
 			time.Sleep(time.Second * 5) // Give time to the watcher to process the events
 
-			extension, _ := w.(*catalog.SimpleWatchChannel)
+			extension, _ := w.(*catalog.SimpleWatcherWithChannel)
 			// Consume the recorded event
 			for _, ev := range []string{"ADDED", "MODIFIED", "MODIFIED"} {
 				event, ok := <-extension.Received
@@ -243,9 +249,14 @@ var _ = Describe("EiriniX", func() {
 		})
 	})
 
-	Context("With a staging and an Eirini app", func() {
+	Context("With a watcher the filters Eirini app pods", func() {
+		testns := "watchertest2"
+
+		BeforeEach(func() {
+			m = c.IntegrationManagerFiltered(true, testns)
+		})
+
 		It("can see only Eirini pods in the namespace", func() {
-			testns := "watchertest2"
 
 			defer func() {
 				_, err := catalog.Kubectl([]string{}, "delete", "namespace", testns)
@@ -259,11 +270,9 @@ var _ = Describe("EiriniX", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(str).To(ContainSubstring("No resources found in default namespace"))
 
-			c := catalog.NewCatalog()
-			m := c.IntegrationManagerFiltered(true, testns)
 			resultChan := make(chan watch.Event, 10) // Test has 3 events
 
-			w := c.SimpleWatcherChannel(resultChan)
+			w := c.SimpleWatcherWithChannel(resultChan)
 
 			m.AddWatcher(w)
 
@@ -287,7 +296,7 @@ var _ = Describe("EiriniX", func() {
 
 			time.Sleep(time.Second * 5) // Give time to the watcher to process the events
 
-			extension, _ := w.(*catalog.SimpleWatchChannel)
+			extension, _ := w.(*catalog.SimpleWatcherWithChannel)
 			// Consume the recorded event - and there should be only one
 
 			// Consume the recorded event

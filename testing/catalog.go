@@ -269,15 +269,15 @@ func (sw *SimpleWatch) Handle(m eirinix.Manager, e watch.Event) {
 }
 
 // SimpleWatcher returns a dummy watcher
-func (c *Catalog) SimpleWatcherChannel(channel chan watch.Event) eirinix.Watcher {
-	return &SimpleWatchChannel{Received: channel}
+func (c *Catalog) SimpleWatcherWithChannel(channel chan watch.Event) eirinix.Watcher {
+	return &SimpleWatcherWithChannel{Received: channel}
 }
 
-type SimpleWatchChannel struct {
+type SimpleWatcherWithChannel struct {
 	Received chan watch.Event
 }
 
-func (sw *SimpleWatchChannel) Handle(m eirinix.Manager, e watch.Event) {
+func (sw *SimpleWatcherWithChannel) Handle(m eirinix.Manager, e watch.Event) {
 	sw.Received <- e
 }
 
