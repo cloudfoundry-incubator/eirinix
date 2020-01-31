@@ -26,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
+	watchtools "k8s.io/client-go/tools/watch"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -84,6 +86,8 @@ type DefaultExtensionManager struct {
 	kubeClient     corev1client.CoreV1Interface
 
 	stopChannel chan struct{}
+
+	watcher watch.Interface
 }
 
 // ManagerOptions represent the Runtime manager options
@@ -178,7 +182,7 @@ func NewManager(opts ManagerOptions) Manager {
 		opts.SetupCertificate = &setupCertificate
 	}
 
-	return &DefaultExtensionManager{Options: opts, Logger: opts.Logger}
+	return &DefaultExtensionManager{Options: opts, Logger: opts.Logger, stopChannel: make(chan struct{})}
 }
 
 // AddExtension adds an Erini extension to the manager
@@ -230,16 +234,18 @@ func (m *DefaultExtensionManager) PatchFromPod(req admission.Request, pod *corev
 
 // GenWatcher generates a watcher from a corev1client interface
 func (m *DefaultExtensionManager) GenWatcher(client corev1client.CoreV1Interface) (watch.Interface, error) {
-
 	podInterface := client.Pods(m.Options.Namespace)
-	opts := metav1.ListOptions{Watch: true}
 
-	if m.Options.FilterEiriniApps != nil && *m.Options.FilterEiriniApps {
-		opts.LabelSelector = LabelSourceType + "=APP"
-	}
+	return watchtools.NewRetryWatcher("1", &cache.ListWatch{
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			options.Watch = true
 
-	watcher, err := podInterface.Watch(opts)
-	return watcher, err
+			if m.Options.FilterEiriniApps != nil && *m.Options.FilterEiriniApps {
+				options.LabelSelector = LabelSourceType + "=APP"
+			}
+
+			return podInterface.Watch(options)
+		}})
 }
 
 // GetLogger returns the Manager injected logger
@@ -454,6 +460,7 @@ func (m *DefaultExtensionManager) Watch() error {
 	if err != nil {
 		return err
 	}
+	m.watcher = watcher
 
 	m.ReadWatcherEvent(watcher)
 
@@ -468,14 +475,16 @@ func (m *DefaultExtensionManager) Start() error {
 		return err
 	}
 
-	m.stopChannel = make(chan struct{})
-
 	return m.KubeManager.Start(m.stopChannel)
 }
 
 func (m *DefaultExtensionManager) Stop() {
 	defer m.Logger.Sync()
+
 	close(m.stopChannel)
+	if m.watcher != nil {
+		m.watcher.Stop()
+	}
 }
 
 func (o *ManagerOptions) getDefaultNamespaceLabel() string {

@@ -67,6 +67,20 @@ func (c *Catalog) IntegrationManager() eirinix.Manager {
 		})
 }
 
+// IntegrationManagerFiltered returns an Extensions manager which is used by integration tests which filters or not eirini apps
+func (c *Catalog) IntegrationManagerFiltered(b bool, n string) eirinix.Manager {
+	return eirinix.NewManager(
+		eirinix.ManagerOptions{
+			Namespace:        n,
+			Host:             c.KindHost,
+			Port:             c.ServicePort,
+			KubeConfig:       os.Getenv("KUBECONFIG"),
+			ServiceName:      "eirinix",
+			WebhookNamespace: n,
+			FilterEiriniApps: &b,
+		})
+}
+
 // IntegrationManagerNoRegister returns an Extensions manager which is used by integration tests, which doesn't register extensions again
 func (c *Catalog) IntegrationManagerNoRegister() eirinix.Manager {
 	RegisterWebhooks := false
@@ -130,6 +144,24 @@ spec:
 `)
 }
 
+// EiriniStagingAppYaml returns a fake Eirini staging app yaml
+func (c *Catalog) EiriniStagingAppYaml() []byte {
+	return []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: 6ad9f634-b32e-4890-b1ba-55202d95bc3a-xdcp6
+spec:
+  containers:
+  - image: busybox:1.28.4
+    command:
+      - sleep
+      - "3600"
+    name: 6ad9f634-b32e-4890-b1ba-55202d95bc3a-xdcp6
+  restartPolicy: Always
+`)
+}
+
 // RegisterEiriniXService register the service generated in ServiceYaml()
 func (c *Catalog) RegisterEiriniXService() error {
 
@@ -142,13 +174,13 @@ func (c *Catalog) RegisterEiriniXService() error {
 }
 
 type EiriniApp struct {
-	Name string
-	Pod  *Pod
+	Name, Namespace string
+	Pod             *Pod
 }
 
 // StartEiriniApp starts EiriniAppYaml with kubernetes
 func (c *EiriniApp) IsRunning() (bool, error) {
-	p, err := KubePodStatus(c.Name)
+	p, err := KubePodStatus(c.Name, c.Namespace)
 	if err != nil {
 		return false, err
 	}
@@ -156,7 +188,7 @@ func (c *EiriniApp) IsRunning() (bool, error) {
 }
 
 func (c *EiriniApp) Delete() error {
-	out, err := Kubectl([]string{}, "delete", "pod", c.Name)
+	out, err := Kubectl([]string{}, "delete", "pod", "-n", c.Namespace, c.Name)
 	if err != nil {
 		return errors.Wrap(err, "Failed: "+string(out))
 	}
@@ -164,7 +196,7 @@ func (c *EiriniApp) Delete() error {
 }
 
 func (c *EiriniApp) Sync() error {
-	p, err := KubePodStatus(c.Name)
+	p, err := KubePodStatus(c.Name, c.Namespace)
 	if err != nil {
 		return err
 	}
@@ -180,7 +212,40 @@ func (c *Catalog) StartEiriniApp() (*EiriniApp, error) {
 		return nil, err
 	}
 
-	return &EiriniApp{Name: "eirini-fake-app"}, nil
+	return &EiriniApp{Name: "eirini-fake-app", Namespace: "default"}, nil
+}
+
+// StartEiriniApp starts EiriniAppYaml with kubernetes
+func (c *Catalog) StartEiriniStagingApp() (*EiriniApp, error) {
+
+	err := KubeApply(c.EiriniStagingAppYaml())
+	if err != nil {
+		return nil, err
+	}
+
+	return &EiriniApp{Name: "6ad9f634-b32e-4890-b1ba-55202d95bc3a-xdcp6", Namespace: "default"}, nil
+}
+
+// StartEiriniApp starts EiriniAppYaml with kubernetes
+func (c *Catalog) StartEiriniAppInNamespace(n string) (*EiriniApp, error) {
+
+	err := KubeApplyNamespace(c.EiriniAppYaml(), n)
+	if err != nil {
+		return nil, err
+	}
+
+	return &EiriniApp{Name: "eirini-fake-app", Namespace: n}, nil
+}
+
+// StartEiriniApp starts EiriniAppYaml with kubernetes
+func (c *Catalog) StartEiriniStagingAppInNamespace(n string) (*EiriniApp, error) {
+
+	err := KubeApplyNamespace(c.EiriniStagingAppYaml(), n)
+	if err != nil {
+		return nil, err
+	}
+
+	return &EiriniApp{Name: "6ad9f634-b32e-4890-b1ba-55202d95bc3a-xdcp6", Namespace: n}, nil
 }
 
 // SimpleManagerService returns a dummy Extensions manager configured to run as a service
@@ -201,6 +266,19 @@ type SimpleWatch struct {
 
 func (sw *SimpleWatch) Handle(m eirinix.Manager, e watch.Event) {
 	sw.Handled = append(sw.Handled, e)
+}
+
+// SimpleWatcher returns a dummy watcher
+func (c *Catalog) SimpleWatcherWithChannel(channel chan watch.Event) eirinix.Watcher {
+	return &SimpleWatcherWithChannel{Received: channel}
+}
+
+type SimpleWatcherWithChannel struct {
+	Received chan watch.Event
+}
+
+func (sw *SimpleWatcherWithChannel) Handle(m eirinix.Manager, e watch.Event) {
+	sw.Received <- e
 }
 
 // SimpleWatcher returns a dummy watcher

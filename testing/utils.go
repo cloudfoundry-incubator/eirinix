@@ -55,8 +55,8 @@ func (p *Pod) IsRunning() bool {
 	return false
 }
 
-func KubePodStatus(podname string) (*Pod, error) {
-	str, err := Kubectl([]string{}, "get", "pod", podname, "-o", "json")
+func KubePodStatus(podname, n string) (*Pod, error) {
+	str, err := Kubectl([]string{}, "get", "pod", podname, "-n", n, "-o", "json")
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed: "+string(str))
 	}
@@ -87,9 +87,17 @@ func KubeClean() error {
 	if err != nil {
 		return errors.Wrap(err, "Failed: "+string(str))
 	}
+	str, err = Kubectl([]string{}, "delete", "event", "--all")
+	if err != nil {
+		return errors.Wrap(err, "Failed: "+string(str))
+	}
 	return nil
 }
 func KubeApply(b []byte) error {
+	return KubeApplyNamespace(b, "default")
+}
+
+func KubeApplyNamespace(b []byte, n string) error {
 	tmpdir, err := ioutil.TempDir(os.TempDir(), "service")
 	if err != nil {
 		return err
@@ -101,7 +109,7 @@ func KubeApply(b []byte) error {
 	if err != nil {
 		return err
 	}
-	out, err := Kubectl([]string{}, "apply", "-f", apply)
+	out, err := Kubectl([]string{}, "apply", "-n", n, "-f", apply)
 	if err != nil {
 		return errors.Wrap(err, "Failed: "+string(out))
 	}
