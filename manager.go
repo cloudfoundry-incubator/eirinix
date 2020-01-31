@@ -86,6 +86,8 @@ type DefaultExtensionManager struct {
 	kubeClient     corev1client.CoreV1Interface
 
 	stopChannel chan struct{}
+
+	watcher watch.Interface
 }
 
 // ManagerOptions represent the Runtime manager options
@@ -180,7 +182,7 @@ func NewManager(opts ManagerOptions) Manager {
 		opts.SetupCertificate = &setupCertificate
 	}
 
-	return &DefaultExtensionManager{Options: opts, Logger: opts.Logger}
+	return &DefaultExtensionManager{Options: opts, Logger: opts.Logger, stopChannel: make(chan struct{})}
 }
 
 // AddExtension adds an Erini extension to the manager
@@ -232,7 +234,6 @@ func (m *DefaultExtensionManager) PatchFromPod(req admission.Request, pod *corev
 
 // GenWatcher generates a watcher from a corev1client interface
 func (m *DefaultExtensionManager) GenWatcher(client corev1client.CoreV1Interface) (watch.Interface, error) {
-
 	podInterface := client.Pods(m.Options.Namespace)
 
 	return watchtools.NewRetryWatcher("1", &cache.ListWatch{
@@ -459,6 +460,7 @@ func (m *DefaultExtensionManager) Watch() error {
 	if err != nil {
 		return err
 	}
+	m.watcher = watcher
 
 	m.ReadWatcherEvent(watcher)
 
@@ -473,14 +475,16 @@ func (m *DefaultExtensionManager) Start() error {
 		return err
 	}
 
-	m.stopChannel = make(chan struct{})
-
 	return m.KubeManager.Start(m.stopChannel)
 }
 
 func (m *DefaultExtensionManager) Stop() {
 	defer m.Logger.Sync()
+
 	close(m.stopChannel)
+	if m.watcher != nil {
+		m.watcher.Stop()
+	}
 }
 
 func (o *ManagerOptions) getDefaultNamespaceLabel() string {
