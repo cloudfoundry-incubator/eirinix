@@ -10,7 +10,7 @@ require (
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/pkg/errors v0.8.1
 	github.com/spf13/afero v1.2.2
-	github.com/spf13/cobra v0.0.5
+	github.com/spf13/cobra v0.0.7
 	github.com/spf13/viper v1.3.2
 	go.uber.org/zap v1.10.0
 	golang.org/x/oauth2 v0.0.0-20190402181905-9f3314589c9a // indirect
