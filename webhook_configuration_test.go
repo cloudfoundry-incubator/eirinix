@@ -5,7 +5,7 @@ import (
 
 	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen"
 	gfakes "code.cloudfoundry.org/cf-operator/pkg/credsgen/fakes"
-	"code.cloudfoundry.org/cf-operator/testing"
+	testing_utils "code.cloudfoundry.org/quarks-utils/testing"
 	. "github.com/SUSE/eirinix"
 	catalog "github.com/SUSE/eirinix/testing"
 	cfakes "github.com/SUSE/eirinix/testing/fakes"
@@ -52,7 +52,7 @@ var _ = Describe("Webhook configuration implementation", func() {
 		generator = &gfakes.FakeGenerator{}
 		generator.GenerateCertificateReturns(credsgen.Certificate{Certificate: []byte("thecert")}, nil)
 
-		ctx = testing.NewContext()
+		ctx = testing_utils.NewContext()
 
 		eiriniManager.Context = ctx
 		eiriniManager.KubeManager = manager
