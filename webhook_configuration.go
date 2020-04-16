@@ -10,6 +10,8 @@ import (
 	"path"
 	"strconv"
 
+	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
+	config "code.cloudfoundry.org/quarks-utils/pkg/config"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -20,8 +22,6 @@ import (
 	machinerytypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
-	"code.cloudfoundry.org/quarks-utils/pkg/config"
 	"github.com/SUSE/eirinix/util/ctxlog"
 )
 
