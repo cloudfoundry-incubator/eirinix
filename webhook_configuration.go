@@ -167,9 +167,9 @@ func (f *WebhookConfig) setupCertificate(ctx context.Context) error {
 	return nil
 }
 
-func (f *WebhookConfig) GenerateAdmissionWebhook(webhooks []MutatingWebhook) []admissionregistrationv1beta1.Webhook {
+func (f *WebhookConfig) GenerateAdmissionWebhook(webhooks []MutatingWebhook) []admissionregistrationv1beta1.MutatingWebhook {
 
-	var mutatingHooks []admissionregistrationv1beta1.Webhook
+	var mutatingHooks []admissionregistrationv1beta1.MutatingWebhook
 
 	for _, webhook := range webhooks {
 		var clientConfig admissionregistrationv1beta1.WebhookClientConfig
@@ -199,7 +199,7 @@ func (f *WebhookConfig) GenerateAdmissionWebhook(webhooks []MutatingWebhook) []a
 			}
 		}
 		p := webhook.GetFailurePolicy()
-		wh := admissionregistrationv1beta1.Webhook{
+		wh := admissionregistrationv1beta1.MutatingWebhook{
 			Name:              webhook.GetName(),
 			Rules:             webhook.GetRules(),
 			FailurePolicy:     &p,
