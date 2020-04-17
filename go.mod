@@ -12,7 +12,7 @@ require (
 	github.com/spf13/afero v1.2.2
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.3.2
-	go.uber.org/zap v1.10.0
+	go.uber.org/zap v1.14.1
 	golang.org/x/oauth2 v0.0.0-20190402181905-9f3314589c9a // indirect
 	google.golang.org/appengine v1.5.0 // indirect
 	k8s.io/api v0.0.0-20190409021203-6e4e0e4f393b
