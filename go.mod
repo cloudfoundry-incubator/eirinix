@@ -6,7 +6,7 @@ require (
 	github.com/cloudflare/cfssl v0.0.0-20181102015659-ea4033a214e7
 	github.com/google/martian v2.1.0+incompatible
 	github.com/onsi/ginkgo v1.10.1
-	github.com/onsi/gomega v1.6.0
+	github.com/onsi/gomega v1.9.0
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/pkg/errors v0.8.1
 	github.com/spf13/afero v1.2.2
