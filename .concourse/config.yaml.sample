@@ -2,7 +2,7 @@
 # pipeline are used.
 
 docker:
-  org: ~ # cfcontainerization
+  org: ~ # splatform
 
 git:
   user: ~  # SUSE CFCIBot

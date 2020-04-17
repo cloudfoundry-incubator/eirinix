@@ -6,16 +6,22 @@
 
 {{/* configure default values */}}
 
+{{/* $.docker */}}
+{{ $ = dict | dict "docker" | merge $ }}
 {{/* .docker.org */}}
-{{ $ = merge (default "cfcontainerization" $.docker.org | dict "org" | dict "docker") $ }}
+{{ $ = merge (index $.docker "org" | default "splatform" | dict "org" | dict "docker") $ }}
+{{/* .git */}}
+{{ $ = dict | dict "git" | merge $ }}
 {{/* .git.user */}}
-{{ $ = merge (default "SUSE CFCIBot" $.git.user | dict "user" | dict "git") $ }}
+{{ $ = merge (index $.git "user" | default "SUSE CFCIBot" | dict "user" | dict "git") $ }}
 {{/* .git.email */}}
-{{ $ = merge (default "cf-ci-bot@suse.de" $.git.email | dict "email" | dict "git") $ }}
+{{ $ = merge (index $.git "email" | default "cf-ci-bot@suse.de" | dict "email" | dict "git") $ }}
+{{/* .repos */}}
+{{ $ = dict | dict "repos" | merge $ }}
 {{/* .repos.trigger */}}
-{{ $ = merge (default true $.repos.trigger | dict "trigger" | dict "repos") $ }}
+{{ $ = merge (index $.repos "trigger" | default true | dict "trigger" | dict "repos") $ }}
 {{/* .repos.org */}}
-{{ $ = merge (default "SUSE" $.repos.org | dict "org" | dict "repos") $ }}
+{{ $ = merge (index $.repos "org" | default "SUSE" | dict "org" | dict "repos") $ }}
 {{/* .repos.<repo> */}}
 {{ range $repos }}
 {{ $ = merge (index $.repos . | default (printf "%s/eirini-%s" $.repos.org .) | dict . | dict "repos") $ }}
@@ -70,12 +76,14 @@
 {{ end }}
 
 groups:
+- name: build-base
+  jobs: [ build-base ]
 - name: logging
   jobs: [ loggregator-bridge ]
 - name: persi
   jobs: [ persi, persi-broker ]
 - name: ssh
-  jobs: [ ssh-extension, ssh-proxy ]
+  jobs: [ ssh, ssh-proxy ]
 
 resources:
 # source GitHub repositories
