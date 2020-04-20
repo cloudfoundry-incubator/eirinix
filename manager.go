@@ -10,8 +10,8 @@ import (
 
 	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
 	inmemorycredgen "code.cloudfoundry.org/cf-operator/pkg/credsgen/in_memory_generator"
-	kubeConfig "code.cloudfoundry.org/cf-operator/pkg/kube/config"
-	"code.cloudfoundry.org/cf-operator/pkg/kube/util/config"
+	config "code.cloudfoundry.org/quarks-utils/pkg/config"
+	kubeConfig "code.cloudfoundry.org/quarks-utils/pkg/kubeconfig"
 	"github.com/SUSE/eirinix/util/ctxlog"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"

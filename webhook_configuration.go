@@ -10,6 +10,8 @@ import (
 	"path"
 	"strconv"
 
+	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
+	config "code.cloudfoundry.org/quarks-utils/pkg/config"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -20,8 +22,6 @@ import (
 	machinerytypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
-	"code.cloudfoundry.org/cf-operator/pkg/kube/util/config"
 	"github.com/SUSE/eirinix/util/ctxlog"
 )
 
@@ -167,9 +167,9 @@ func (f *WebhookConfig) setupCertificate(ctx context.Context) error {
 	return nil
 }
 
-func (f *WebhookConfig) GenerateAdmissionWebhook(webhooks []MutatingWebhook) []admissionregistrationv1beta1.Webhook {
+func (f *WebhookConfig) GenerateAdmissionWebhook(webhooks []MutatingWebhook) []admissionregistrationv1beta1.MutatingWebhook {
 
-	var mutatingHooks []admissionregistrationv1beta1.Webhook
+	var mutatingHooks []admissionregistrationv1beta1.MutatingWebhook
 
 	for _, webhook := range webhooks {
 		var clientConfig admissionregistrationv1beta1.WebhookClientConfig
@@ -199,7 +199,7 @@ func (f *WebhookConfig) GenerateAdmissionWebhook(webhooks []MutatingWebhook) []a
 			}
 		}
 		p := webhook.GetFailurePolicy()
-		wh := admissionregistrationv1beta1.Webhook{
+		wh := admissionregistrationv1beta1.MutatingWebhook{
 			Name:              webhook.GetName(),
 			Rules:             webhook.GetRules(),
 			FailurePolicy:     &p,
