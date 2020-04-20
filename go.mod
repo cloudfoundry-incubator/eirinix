@@ -26,7 +26,7 @@ require (
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.9.0
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
-	github.com/pkg/errors v0.8.1
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v0.9.4 // indirect
 	github.com/spf13/afero v1.2.2
 	github.com/viovanov/bosh-template-go v0.0.0-20190801125410-a195ef3de03a // indirect
