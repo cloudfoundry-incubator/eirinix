@@ -2,7 +2,7 @@
 {{/* list of repositories and output images */}}
 
 {{ $repos := slice "loggregator-bridge" "persi" "persi-broker" "ssh" }}
-{{ $images := slice "loggregator-bridge" "persi" "persi-broker" "ssh" "ssh-proxy" }}
+{{ $images := slice "loggregator-bridge" "persi" "persi-broker" "ssh" }}
 
 {{/* configure default values */}}
 
@@ -29,61 +29,28 @@
 
 {{/* This template builds a go binary from source */}}
 {{/* Requires `.repo`, `.image`, and `.subdir` keys */}}
-{{ define "direct-build" }}
+{{ define "build-image" }}
 - name: {{ $.image }}
   plan:
-  - get: docker.build-base
   - get: git.{{ $.repo }}
     trigger: {{ $.repos.trigger }}
     version: every
-  - task: build
-    config:
-      platform: linux
-      inputs:
-      - name: src
-      outputs:
-      - name: bin
-      caches:
-      - path: cache
-      run:
-        path: /bin/sh
-        args:
-        - -c
-        - >
-          set -o errexit -o nounset -o xtrace ;
-          export GOCACHE=$PWD/cache ;
-          OUTFILE=${PWD}/bin/{{ $.image }} ;
-          cd src ;
-          GO111MODULES=on go mod vendor ;
-          go build -o ${OUTFILE} ./{{ $.subdir }}/
-    image: docker.build-base
-    input_mapping:
-      src: git.{{ $.repo }}
-  - task: image
-    config:
-      platform: linux
-      inputs:
-      - name: bin
-      outputs:
-      - name: image
-      run:
-        path: /usr/bin/tar
-        args: [ cf, image/image.tar, -C, bin, {{ $.image }} ]
-    image: docker.build-base
   - put: docker.{{ $.image }}
     params:
-      import_file: image/image.tar
+      build: git.{{ $.repo }}/
+      build_args:
+        USER: {{ $.git.user }}
+        EMAIL: {{ $.git.email }}
+        # BASE_IMAGE: scratch # FIXME: images are missing /tmp folder, which makes extensions to crash
 {{ end }}
 
 groups:
-- name: build-base
-  jobs: [ build-base ]
 - name: logging
   jobs: [ loggregator-bridge ]
 - name: persi
   jobs: [ persi, persi-broker ]
 - name: ssh
-  jobs: [ ssh, ssh-proxy ]
+  jobs: [ ssh ]
 
 resources:
 # source GitHub repositories
@@ -103,77 +70,21 @@ resources:
     repository: {{ $.docker.org }}/eirinix-{{ . }}
     username:   ((docker-username))
     password:   ((docker-password))
-    build_args:
-      user: {{ $.git.user }}
-      email: {{ $.git.email }}
-
 {{ end }}
 
-# Docker image for building images
-- name: docker.build-base
-  type: docker-image
-  source:
-    repository: {{ $.docker.org }}/eirinix-build-base
-    username:   ((docker-username))
-    password:   ((docker-password))
-
 jobs:
-
-# Job to construct docker.build-base
-- name: build-base
-  plan:
-  - task: dockerfile
-    config:
-      platform: linux
-      image_resource:
-        type: registry-image
-        source: { repository: opensuse/leap }
-      outputs:
-      - name: out
-      run:
-        path: /bin/sh
-        args:
-        - -c
-        - echo "${DATA}" > out/Dockerfile
-      params:
-        DATA: |
-          FROM opensuse/leap
-          RUN true \
-            && zypper --non-interactive refresh \
-            && zypper --non-interactive install \
-              git-core \
-              bzr \
-              python-openssl \
-              'go >= 1.12' \
-              tar \
-            && zypper --non-interactive clean
-  - put: docker.build-base
-    params:
-      build: out
-
 {{ if has $images "loggregator-bridge" }}
-- name: loggregator-bridge
-  plan:
-  - get: git.loggregator-bridge
-    trigger: {{ $.repos.trigger }}
-    version: every
-  - put: docker.loggregator-bridge
-    params:
-      build: git.loggregator-bridge
+{{ template "build-image" (dict "repo" "loggregator-bridge" "image" "loggregator-bridge" | merge $) }}
 {{ end }}
 
 {{ if has $images "persi" }}
-{{ template "direct-build" (dict "repo" "persi" "subdir" "cmd/eirini-ext" "image" "persi" | merge $) }}
+{{ template "build-image" (dict "repo" "persi" "image" "persi" | merge $) }}
 {{ end }}
 
 {{ if has $images "persi-broker" }}
-{{ template "direct-build" (dict "repo" "persi-broker" "subdir" "cmd/broker" "image" "persi-broker" | merge $) }}
+{{ template "build-image" (dict "repo" "persi-broker" "image" "persi-broker" | merge $) }}
 {{ end }}
 
 {{ if has $images "ssh" }}
-{{ template "direct-build" (dict "repo" "ssh" "subdir" "cmd/extension" "image" "ssh" | merge $) }}
-{{ end }}
-
-{{ if has $images "ssh-proxy" }}
-{{ template "direct-build" (dict "repo" "ssh" "subdir" "cmd/ssh-proxy" "image" "ssh-proxy" | merge $) }}
+{{ template "build-image" (dict "repo" "ssh" "image" "ssh" | merge $) }}
 {{ end }}
