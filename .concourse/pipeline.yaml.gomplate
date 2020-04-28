@@ -35,6 +35,28 @@
   - get: git.{{ $.repo }}
     trigger: {{ $.repos.trigger }}
     version: every
+  - task: get-version
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source: { repository: opensuse/leap }
+      inputs:
+      - name: git.{{ $.repo }}
+        path: src
+      outputs:
+      - name: tag
+      run:
+        path: /bin/sh
+        args:
+        - -c
+        - >
+          export XTRACE=on ;
+          (
+            cd src ;
+            bin/include/versioning
+          ) > tag/tag.txt
+
   - put: docker.{{ $.image }}
     params:
       build: git.{{ $.repo }}/
@@ -42,6 +64,7 @@
         USER: {{ $.git.user }}
         EMAIL: {{ $.git.email }}
         # BASE_IMAGE: scratch # FIXME: images are missing /tmp folder, which makes extensions to crash
+      tag_file: tag/tag.txt
 {{ end }}
 
 groups:
