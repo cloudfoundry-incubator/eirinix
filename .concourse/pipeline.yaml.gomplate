@@ -1,35 +1,43 @@
 
-{{/* list of repositories and output images */}}
+{{- /* list of repositories and output images */ -}}
 
-{{ $repos := slice "eirini-loggregator-bridge" "eirini-persi" "eirini-persi-broker" "eirini-ssh" "eirinix-helm-release" }}
-{{ $images := slice "loggregator-bridge" "persi" "persi-broker" "persi-broker-setup" "ssh" "ssh-proxy-setup" }}
+{{- $repos := slice "eirini-loggregator-bridge" "eirini-persi" "eirini-persi-broker" "eirini-ssh" "eirinix-helm-release" }}
+{{- $images := slice "loggregator-bridge" "persi" "persi-broker" "persi-broker-setup" "ssh" "ssh-proxy-setup" }}
 
-{{/* configure default values */}}
+{{- /* configure default values */ -}}
 
-{{/* $.docker */}}
-{{ $ = dict | dict "docker" | merge $ }}
-{{/* .docker.org */}}
-{{ $ = merge (index $.docker "org" | default "splatform" | dict "org" | dict "docker") $ }}
-{{/* .git */}}
-{{ $ = dict | dict "git" | merge $ }}
-{{/* .git.user */}}
-{{ $ = merge (index $.git "user" | default "SUSE CFCIBot" | dict "user" | dict "git") $ }}
-{{/* .git.email */}}
-{{ $ = merge (index $.git "email" | default "cf-ci-bot@suse.de" | dict "email" | dict "git") $ }}
-{{/* .repos */}}
-{{ $ = dict | dict "repos" | merge $ }}
-{{/* .repos.trigger */}}
-{{ $ = merge (index $.repos "trigger" | default true | dict "trigger" | dict "repos") $ }}
-{{/* .repos.org */}}
-{{ $ = merge (index $.repos "org" | default "SUSE" | dict "org" | dict "repos") $ }}
-{{/* .repos.<repo> */}}
-{{ range $repos }}
-{{ $ = merge (index $.repos . | default (printf "%s/%s" $.repos.org .) | dict . | dict "repos") $ }}
-{{ end }}
+{{- /* $.docker */ -}}
+{{- $ = dict | dict "docker" | merge $ -}}
+{{- /* .docker.org */ -}}
+{{- $ = merge (index $.docker "org" | default "splatform" | dict "org" | dict "docker") $ -}}
+{{- /* .git */ -}}
+{{- $ = dict | dict "git" | merge $ -}}
+{{- /* .git.user */ -}}
+{{- $ = merge (index $.git "user" | default "SUSE CFCIBot" | dict "user" | dict "git") $ -}}
+{{- /* .git.email */ -}}
+{{- $ = merge (index $.git "email" | default "cf-ci-bot@suse.de" | dict "email" | dict "git") $ -}}
+{{- /* .repos */ -}}
+{{- $ = dict | dict "repos" | merge $ -}}
+{{- /* .repos.trigger */ -}}
+{{- $ = merge (index $.repos "trigger" | default true | dict "trigger" | dict "repos") $ -}}
+{{- /* .repos.org */ -}}
+{{- $ = merge (index $.repos "org" | default "SUSE" | dict "org" | dict "repos") $ -}}
+{{- /* .repos.<repo> */ -}}
+{{- range $repos -}}
+{{- $ = merge (index $.repos . | default (printf "%s/%s" $.repos.org .) | dict . | dict "repos") $ -}}
+{{- end -}}
+{{- /* $.s3 */ -}}
+{{- $ = dict | dict "s3" | merge $ -}}
+{{- /* $.s3.bucket */ -}}
+{{- $ = merge (index $.s3 "bucket" | default "eirini-suse" | dict "bucket" | dict "s3") $ -}}
+{{- /* $.s3.prefix */ -}}
+{{- $ = merge (index $.s3 "prefix" | default "" | dict "prefix" | dict "s3") $ -}}
+{{- /* $.s3.region_name */ -}}
+{{- $ = merge (index $.s3 "region_name" | default "us-east-1" | dict "region_name" | dict "s3") $ -}}
 
-{{/* This template builds a go binary from source */}}
-{{/* Requires `.repo`, `.image`, and `.subdir` keys */}}
-{{/* Optionally, `.docker-path` can be used to locate the Dockerfile. */}}
+{{- /* This template builds a go binary from source */ -}}
+{{- /* Requires `.repo`, `.image`, and `.subdir` keys */ -}}
+{{- /* Optionally, `.docker-path` can be used to locate the Dockerfile. */ -}}
 {{ define "build-image" }}
 - name: {{ $.image }}
   plan:
@@ -63,18 +71,24 @@
               . bin/include/versioning ;
               echo $VERSION_TAG ;
             else
-              git describe --tags --long --always ;
+              git describe --tags --long || \
+                printf "v0.0.0-g%s" "$(git describe --always)"
             fi
           ) > tag/tag.txt ;
-          cat tag/tag.txt ;
-  - put: docker.{{ $.image }}
-    params:
-      build: git.{{ $.repo }}/{{ index . "docker-path" | default "" }}
-      build_args:
-        USER: {{ $.git.user }}
-        EMAIL: {{ $.git.email }}
-        # BASE_IMAGE: scratch # FIXME: images are missing /tmp folder, which makes extensions to crash
-      tag_file: tag/tag.txt
+          cp tag/tag.txt "tag/image-{{ $.image }}-tag-$(cat tag/tag.txt).txt"
+  - in_parallel:
+    - put: docker.{{ $.image }}
+      params:
+        build: git.{{ $.repo }}/{{ index . "docker-path" | default "" }}
+        build_args:
+          USER: {{ $.git.user }}
+          EMAIL: {{ $.git.email }}
+          # BASE_IMAGE: scratch # FIXME: images are missing /tmp folder, which makes extensions to crash
+        tag_file: tag/tag.txt
+        tag_as_latest: true
+    - put: s3.{{ $.image }}-version
+      params:
+        file: tag/image-{{ $.image }}-tag-*.txt
 {{ end }}
 
 groups:
@@ -105,6 +119,16 @@ resources:
     repository: {{ $.docker.org }}/eirinix-{{ . }}
     username:   ((docker-username))
     password:   ((docker-password))
+- name: s3.{{ . }}-version
+  type: s3
+  source:
+    bucket: {{ $.s3.bucket }}
+    {{- range keys $.s3 }}
+    {{- if has (slice "bucket" "prefix") . | not }}
+    {{ . }}: {{ index $.s3 . }}
+    {{- end }}
+    {{- end }}
+    regexp: {{ $.s3.prefix | default ""  }}image-{{ . }}-tag-(.*).txt
 {{ end }}
 - name: docker.base
   type: docker-image
@@ -117,6 +141,18 @@ resources:
     repository: {{ $.docker.org }}/eirinix-package-base
     username:   ((docker-username))
     password:   ((docker-password))
+
+# S3 bucket for chart
+- name: s3.chart
+  type: s3
+  source:
+    bucket: {{ $.s3.bucket }}
+    {{- range keys $.s3 }}
+    {{- if has (slice "bucket" "prefix") . | not }}
+    {{ . }}: {{ index $.s3 . }}
+    {{- end }}
+    {{- end }}
+    regexp: {{ $.s3.prefix | default "" }}eirini-extensions-(.*).tgz
 
 jobs:
 # group logging
@@ -151,8 +187,9 @@ jobs:
           FROM opensuse/leap:15.2
           RUN true \
             && zypper --non-interactive install \
+              git-core \
               helm \
-              python3-yq \
+              ruby \
             && zypper --non-interactive clean
     image: docker.base
   - put: docker.package-base
@@ -162,9 +199,8 @@ jobs:
   plan:
   - in_parallel:
     {{- range $images }}
-    - get: docker.{{ . }}
-      params:
-        skip_download: true
+    - get: s3.{{ . }}-version
+      trigger: {{ $.repos.trigger }}
     {{- end }}
     - get: docker.package-base
     - get: git.eirinix-helm-release
@@ -174,17 +210,22 @@ jobs:
       platform: linux
       inputs:
       - name: git.eirinix-helm-release
+      {{- range $images }}
+      - name: s3.{{ . }}-version
+      {{- end }}
       outputs:
       - name: output
       run:
-        path: /bin/sh
+        dir: git.eirinix-helm-release
+        path: bin/package
         args:
-        - -c
-        - >
-          helm package git.eirinix-helm-release/chart
-          --destination output
+        - --destination=../output
     image: docker.package-base
     params:
       {{- range $images }}
-      TAG_FILE_{{ . | strings.SnakeCase | toUpper }}: docker.{{ . }}/tag
+      TAG_FILE_{{ . | strings.SnakeCase | toUpper }}: ../s3.{{ . }}-version/version
       {{- end }}
+  - put: s3.chart
+    params:
+      file: output/eirini-extensions-*.tgz
+      acl: public-read

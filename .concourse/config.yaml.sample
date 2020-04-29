@@ -17,3 +17,14 @@ repos:
   eirini-persi-broker: ~           # SUSE/eirini-persi-broker
   eirini-ssh: ~                    # SUSE/eirini-ssh
   eirinix-helm-release: ~          # SUSE/eirinix-helm-release
+
+s3:
+  bucket: eirini-suse
+  prefix: ""
+  access_key_id: ~
+  secret_access_key: ~
+  session_token: ~
+  region_name: us-east-1
+  private: false
+  endpoint: ~
+  disable_ssl: false
