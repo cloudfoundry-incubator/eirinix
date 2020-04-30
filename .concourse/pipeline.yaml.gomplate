@@ -185,8 +185,10 @@ jobs:
       params:
         CONTENTS: |
           FROM opensuse/leap:15.2
+          # coreutils required for sha256sum / date
           RUN true \
             && zypper --non-interactive install \
+              coreutils \
               git-core \
               helm \
               ruby \
@@ -201,6 +203,7 @@ jobs:
     {{- range $images }}
     - get: s3.{{ . }}-version
       trigger: {{ $.repos.trigger }}
+      passed: [ {{ . }} ]
     {{- end }}
     - get: docker.package-base
     - get: git.eirinix-helm-release
