@@ -34,6 +34,10 @@
 {{- $ = merge (index $.s3 "prefix" | default "" | dict "prefix" | dict "s3") $ -}}
 {{- /* $.s3.region_name */ -}}
 {{- $ = merge (index $.s3 "region_name" | default "us-east-1" | dict "region_name" | dict "s3") $ -}}
+{{- /* $.s3.access_key_id */ -}}
+{{- $ = merge (index $.s3 "access_key_id" | default "((aws-access-key))" | dict "access_key_id" | dict "s3") $ -}}
+{{- /* $.s3.secret_access_key */ -}}
+{{- $ = merge (index $.s3 "secret_access_key" | default "((aws-secret-key))" | dict "secret_access_key" | dict "s3") $ -}}
 
 {{- /* This template builds a go binary from source */ -}}
 {{- /* Requires `.repo`, `.image`, and `.subdir` keys */ -}}
