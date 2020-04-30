@@ -22,6 +22,10 @@
 {{- $ = merge (index $.repos "trigger" | default true | dict "trigger" | dict "repos") $ -}}
 {{- /* .repos.org */ -}}
 {{- $ = merge (index $.repos "org" | default "SUSE" | dict "org" | dict "repos") $ -}}
+{{- /* .repos.token */ -}}
+{{- $ = merge (index $.repos "token" | default "((github-access-token))" | dict "token" | dict "repos") $ -}}
+{{- /* .repos.key */ -}}
+{{- $ = merge (index $.repos "key" | default "((github-private-key))" | dict "key" | dict "repos") $ -}}
 {{- /* .repos.<repo> */ -}}
 {{- range $repos -}}
 {{- $ = merge (index $.repos . | default (printf "%s/%s" $.repos.org .) | dict . | dict "repos") $ -}}
@@ -114,6 +118,14 @@ resources:
     branch: master
     uri: https://github.com/{{ index $.repos . }}
 {{ end }}
+- name: github-release.chart
+  type: github-release
+  source:
+    owner: {{ $.repos.org }}
+    repository: eirinix-helm-release
+    access_token: {{ $.repos.token }}
+    release: false
+    pre_release: true
 
 # Docker image outputs
 {{ range $images }}
@@ -123,16 +135,6 @@ resources:
     repository: {{ $.docker.repository }}/eirinix-{{ . }}
     username:   ((docker-username))
     password:   ((docker-password))
-- name: s3.{{ . }}-version
-  type: s3
-  source:
-    bucket: {{ $.s3.bucket }}
-    {{- range keys $.s3 }}
-    {{- if has (slice "bucket" "prefix") . | not }}
-    {{ . }}: {{ index $.s3 . }}
-    {{- end }}
-    {{- end }}
-    regexp: {{ $.s3.prefix | default ""  }}image-{{ . }}-tag-(.*).txt
 {{ end }}
 - name: docker.base
   type: docker-image
@@ -146,8 +148,9 @@ resources:
     username:   ((docker-username))
     password:   ((docker-password))
 
-# S3 bucket for chart
-- name: s3.chart
+# S3 resources
+{{ range $images }}
+- name: s3.{{ . }}-version
   type: s3
   source:
     bucket: {{ $.s3.bucket }}
@@ -156,7 +159,8 @@ resources:
     {{ . }}: {{ index $.s3 . }}
     {{- end }}
     {{- end }}
-    regexp: {{ $.s3.prefix | default "" }}eirini-extensions-(.*).tgz
+    regexp: {{ $.s3.prefix | default ""  }}image-{{ . }}-tag-(.*).txt
+{{ end }}
 
 jobs:
 # group logging
@@ -229,6 +233,8 @@ jobs:
         - --destination=../output
     image: docker.package-base
     params:
+      VERSION_FILE: ../output/version.txt
+      COMMIT_HASH_FILE: ../output/commit.txt
       OVERRIDES: |
         {{- range $images }}
         {{- if . | strings.HasSuffix "-setup" | not }}
@@ -250,7 +256,19 @@ jobs:
           setup-image:
             repository: {{ $.docker.repository }}
             tag: <%= File.read('../s3.ssh-proxy-setup-version/version') %>
-  - put: s3.chart
+  - task: release-prep
+    config:
+      platform: linux
+      outputs:
+      - name: release-prep
+      run:
+        path: /bin/sh
+        args: [ -c, "echo -n v > release-prep/tag-prefix.txt" ]
+    image: docker.package-base
+  - put: github-release.chart
     params:
-      file: output/eirini-extensions-*.tgz
-      acl: public-read
+      name: output/version.txt
+      tag: output/version.txt
+      tag_prefix: release-prep/tag-prefix.txt
+      commitish: output/commit.txt
+      globs: [ output/eirini-extensions-*.tgz ]

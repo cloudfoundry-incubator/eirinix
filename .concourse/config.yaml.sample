@@ -11,6 +11,8 @@ git:
 repos:
   trigger: false                   # whether to automatically trigger builds
   org: ~                           # SUSE
+  token:                           ((github-access-token))
+  key:                             ((github-private-key))
   # Per-repo overrides are also possible; these include the org.
   eirini-loggregator-bridge: ~     # SUSE/eirini-loggregator-bridge
   eirini-persi: ~                  # SUSE/eirini-persi
@@ -19,12 +21,12 @@ repos:
   eirinix-helm-release: ~          # SUSE/eirinix-helm-release
 
 s3:
-  bucket: eirini-suse
-  prefix: ""
-  access_key_id: ~
-  secret_access_key: ~
-  session_token: ~
-  region_name: us-east-1
-  private: false
-  endpoint: ~
-  disable_ssl: false
+  bucket:            eirini-suse
+  prefix:            ""
+  access_key_id:     ((aws-access-key))
+  secret_access_key: ((aws-secret-key))
+  session_token:     ~
+  region_name:       us-east-1
+  private:           false
+  endpoint:          ~
+  disable_ssl:       false
