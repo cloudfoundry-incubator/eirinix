@@ -110,4 +110,10 @@ type Manager interface {
 
 	// Stop stops the manager execution
 	Stop()
+
+	// SetManagerOptions it is a setter for the ManagerOptions
+	SetManagerOptions(ManagerOptions)
+
+	// GetManagerOptions returns current ManagerOptions
+	GetManagerOptions() ManagerOptions
 }

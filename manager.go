@@ -277,6 +277,11 @@ func (m *DefaultExtensionManager) GetLogger() *zap.SugaredLogger {
 	return m.Logger
 }
 
+// GetManagerOptions returns the Manager options
+func (m *DefaultExtensionManager) GetManagerOptions() ManagerOptions {
+	return m.Options
+}
+
 func (m *DefaultExtensionManager) kubeSetup() error {
 	restConfig, err := kubeConfig.NewGetter(m.Logger).Get(m.Options.KubeConfig)
 	if err != nil {
@@ -383,6 +388,11 @@ func (m *DefaultExtensionManager) SetKubeConnection(c *rest.Config) {
 // SetKubeClient sets a kube client corev1 from a given one
 func (m *DefaultExtensionManager) SetKubeClient(c corev1client.CoreV1Interface) {
 	m.kubeClient = c
+}
+
+// SetManagerOptions sets the ManagerOptions with the provided one
+func (m *DefaultExtensionManager) SetManagerOptions(o ManagerOptions) {
+	m.Options = o
 }
 
 // RegisterExtensions generates the manager and the operator setup, and loads the extensions to the webhook server
