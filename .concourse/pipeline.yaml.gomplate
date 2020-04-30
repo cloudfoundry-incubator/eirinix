@@ -256,19 +256,10 @@ jobs:
           setup-image:
             repository: {{ $.docker.repository }}
             tag: <%= File.read('../s3.ssh-proxy-setup-version/version') %>
-  - task: release-prep
-    config:
-      platform: linux
-      outputs:
-      - name: release-prep
-      run:
-        path: /bin/sh
-        args: [ -c, "echo -n v > release-prep/tag-prefix.txt" ]
-    image: docker.package-base
   - put: github-release.chart
     params:
       name: output/version.txt
       tag: output/version.txt
-      tag_prefix: release-prep/tag-prefix.txt
+      tag_prefix: v
       commitish: output/commit.txt
       globs: [ output/eirini-extensions-*.tgz ]
