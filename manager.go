@@ -18,8 +18,11 @@ import (
 	"go.uber.org/zap"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	fields "k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	machinerytypes "k8s.io/apimachinery/pkg/types"
@@ -131,6 +134,10 @@ type ManagerOptions struct {
 
 	// WebhookNamespace, when ServiceName is supplied, a WebhookNamespace is required to indicate in which namespace the webhook service runs on
 	WebhookNamespace string
+
+	// WatcherStartRV is the starting ResourceVersion of the PodList which is being watched (see Kubernetes #74022).
+	// If omitted, it will start watching from the current RV.
+	WatcherStartRV string
 }
 
 var addToSchemes = runtime.SchemeBuilder{}
@@ -236,7 +243,24 @@ func (m *DefaultExtensionManager) PatchFromPod(req admission.Request, pod *corev
 func (m *DefaultExtensionManager) GenWatcher(client corev1client.CoreV1Interface) (watch.Interface, error) {
 	podInterface := client.Pods(m.Options.Namespace)
 
-	return watchtools.NewRetryWatcher("1", &cache.ListWatch{
+	startResourceVersion := m.Options.WatcherStartRV
+
+	if startResourceVersion == "" {
+		lw := cache.NewListWatchFromClient(client.RESTClient(), "pods", v1.NamespaceAll, fields.Everything())
+		list, err := lw.List(metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		metaObj, err := meta.ListAccessor(list)
+		if err != nil {
+			return nil, err
+		}
+
+		startResourceVersion = metaObj.GetResourceVersion()
+	}
+
+	return watchtools.NewRetryWatcher(startResourceVersion, &cache.ListWatch{
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.Watch = true
 
@@ -251,6 +275,11 @@ func (m *DefaultExtensionManager) GenWatcher(client corev1client.CoreV1Interface
 // GetLogger returns the Manager injected logger
 func (m *DefaultExtensionManager) GetLogger() *zap.SugaredLogger {
 	return m.Logger
+}
+
+// GetManagerOptions returns the Manager options
+func (m *DefaultExtensionManager) GetManagerOptions() ManagerOptions {
+	return m.Options
 }
 
 func (m *DefaultExtensionManager) kubeSetup() error {
@@ -361,6 +390,11 @@ func (m *DefaultExtensionManager) SetKubeClient(c corev1client.CoreV1Interface) 
 	m.kubeClient = c
 }
 
+// SetManagerOptions sets the ManagerOptions with the provided one
+func (m *DefaultExtensionManager) SetManagerOptions(o ManagerOptions) {
+	m.Options = o
+}
+
 // RegisterExtensions generates the manager and the operator setup, and loads the extensions to the webhook server
 func (m *DefaultExtensionManager) RegisterExtensions() error {
 	if err := m.generateManager(); err != nil {
@@ -438,8 +472,7 @@ func (m *DefaultExtensionManager) HandleEvent(e watch.Event) {
 	}
 }
 
-// ReadWatcherEvent tries to read events from the watcher channel and return error if the channel
-// is closed. It should be run in a loop.
+// ReadWatcherEvent tries to read events from the watcher channel. It should be run in a loop.
 func (m *DefaultExtensionManager) ReadWatcherEvent(w watch.Interface) {
 	resultChannel := w.ResultChan()
 

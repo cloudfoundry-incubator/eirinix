@@ -75,6 +75,7 @@ var _ = Describe("Extension Manager", func() {
 		eiriniManager.KubeManager = manager
 		eiriniManager.Options.Namespace = "default"
 		eiriniManager.Credsgen = generator
+		eiriniManager.Options.WatcherStartRV = "1"
 
 		eiriniServiceManager.Context = ctx
 		eiriniServiceManager.KubeManager = manager
@@ -84,21 +85,23 @@ var _ = Describe("Extension Manager", func() {
 
 	Context("DefaultExtensionManager", func() {
 		It("satisfies the Manager interface", func() {
-			m, ok := Manager.(*DefaultExtensionManager)
-			Expect(ok).To(Equal(true))
-			Expect(m.Options.Namespace).To(Equal("default"))
-			Expect(m.Options.Host).To(Equal("127.0.0.1"))
-			Expect(m.Options.Port).To(Equal(int32(90)))
+			Expect(Manager.GetManagerOptions().Namespace).To(Equal("default"))
+			Expect(Manager.GetManagerOptions().Host).To(Equal("127.0.0.1"))
+			Expect(Manager.GetManagerOptions().Port).To(Equal(int32(90)))
 			defaultPolicy := admissionregistrationv1beta1.Fail
-			Expect(m.Options.FailurePolicy).To(Equal(&defaultPolicy))
-			Expect(m.Options.OperatorFingerprint).To(Equal("eirini-x"))
-			Expect(m.Options.KubeConfig).To(Equal(""))
-			Expect(m.Options.Logger).NotTo(Equal(nil))
-			Expect(m.Logger).NotTo(Equal(nil))
-			Expect(*m.Options.FilterEiriniApps).To(BeTrue())
-
+			Expect(Manager.GetManagerOptions().FailurePolicy).To(Equal(&defaultPolicy))
+			Expect(Manager.GetManagerOptions().OperatorFingerprint).To(Equal("eirini-x"))
+			Expect(Manager.GetManagerOptions().KubeConfig).To(Equal(""))
+			Expect(Manager.GetManagerOptions().Logger).NotTo(Equal(nil))
+			Expect(*Manager.GetManagerOptions().FilterEiriniApps).To(BeTrue())
 			Expect(Manager.GetLogger()).ToNot(BeNil())
 			Expect(Manager.ListExtensions()).To(BeEmpty())
+		})
+		It("provides option setter", func() {
+			o := Manager.GetManagerOptions()
+			o.Namespace = "test"
+			Manager.SetManagerOptions(o)
+			Expect(Manager.GetManagerOptions().Namespace).To(Equal("test"))
 		})
 		It("Setups correctly the operator structures", func() {
 			err := eiriniManager.OperatorSetup()
