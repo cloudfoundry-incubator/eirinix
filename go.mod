@@ -30,7 +30,7 @@ require (
 	github.com/prometheus/client_golang v0.9.4 // indirect
 	github.com/spf13/afero v1.2.2
 	github.com/viovanov/bosh-template-go v0.0.0-20190801125410-a195ef3de03a // indirect
-	go.uber.org/zap v1.14.1
+	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975 // indirect
 	k8s.io/api v0.0.0-20200404061942-2a93acf49b83
 	k8s.io/apimachinery v0.0.0-20200410010401-7378bafd8ae2
