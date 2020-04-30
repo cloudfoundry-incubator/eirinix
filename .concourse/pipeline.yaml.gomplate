@@ -2,7 +2,7 @@
 {{- /* list of repositories and output images */ -}}
 
 {{- $repos := slice "eirini-loggregator-bridge" "eirini-persi" "eirini-persi-broker" "eirini-ssh" "eirinix-helm-release" }}
-{{- $images := slice "loggregator-bridge" "persi" "persi-broker" "persi-broker-setup" "ssh" "ssh-proxy-setup" }}
+{{- $images := slice "loggregator-bridge" "persi" "persi-broker" "ssh" "persi-broker-setup" "ssh-proxy-setup" }}
 
 {{- /* configure default values */ -}}
 
@@ -222,9 +222,27 @@ jobs:
         - --destination=../output
     image: docker.package-base
     params:
-      {{- range $images }}
-      TAG_FILE_{{ . | strings.SnakeCase | toUpper }}: ../s3.{{ . }}-version/version
-      {{- end }}
+      OVERRIDES: |
+        {{- range $images }}
+        {{- if . | strings.HasSuffix "-setup" | not }}
+        {{ . }}:
+          image:
+            repository: {{ $.docker.org }}
+            tag: <%= File.read('../s3.{{ . }}-version/version') %>
+          {{- if printf "%s-setup" . | has $images }}
+          setup-image:
+            repository: {{ $.docker.org }}
+            tag: <%= File.read('../s3.{{ . }}-setup-version/version') %>
+          {{- end }}
+        {{- end }}
+        {{- end }}
+        ssh-proxy:
+          image:
+            repository: {{ $.docker.org }}
+            tag: <%= File.read('../s3.ssh-version/version') %>
+          setup-image:
+            repository: {{ $.docker.org }}
+            tag: <%= File.read('../s3.ssh-proxy-setup-version/version') %>
   - put: s3.chart
     params:
       file: output/eirini-extensions-*.tgz
