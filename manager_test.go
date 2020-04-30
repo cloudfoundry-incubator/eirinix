@@ -75,6 +75,7 @@ var _ = Describe("Extension Manager", func() {
 		eiriniManager.KubeManager = manager
 		eiriniManager.Options.Namespace = "default"
 		eiriniManager.Credsgen = generator
+		eiriniManager.Options.WatcherStartRV = "1"
 
 		eiriniServiceManager.Context = ctx
 		eiriniServiceManager.KubeManager = manager
