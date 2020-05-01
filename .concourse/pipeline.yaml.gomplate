@@ -80,7 +80,7 @@
               . bin/include/versioning ;
               echo $VERSION_TAG ;
             else
-              git describe --tags --long || \
+              git describe --tags --long --exclude '*+g*' || \
                 printf "v0.0.0-g%s" "$(git describe --always)"
             fi
           ) > tag/tag.txt ;
@@ -102,7 +102,7 @@
 
 groups:
 - name: chart
-  jobs: [ package-base, chart ]
+  jobs: [ package-base, chart, update-repo ]
 - name: logging
   jobs: [ loggregator-bridge ]
 - name: persi
@@ -236,12 +236,11 @@ jobs:
       run:
         dir: git.eirinix-helm-release
         path: bin/package
-        args:
-        - --destination=../output
     image: docker.package-base
     params:
       VERSION_FILE: ../output/version.txt
       COMMIT_HASH_FILE: ../output/commit.txt
+      OUTPUT_DIR: ../output/
       OVERRIDES: |
         {{- range $images }}
         {{- if . | strings.HasSuffix "-setup" | not }}
@@ -263,46 +262,43 @@ jobs:
           setup-image:
             repository: {{ $.docker.repository }}
             tag: <%= File.read('../s3.ssh-proxy-setup-version/version') %>
+  - put: github-release.chart
+    params:
+      name: output/version.txt
+      tag: output/version.txt
+      tag_prefix: v
+      commitish: output/commit.txt
+      globs: [ output/eirini-extensions-*.tgz ]
+- name: update-repo
+  serial: true
+  plan:
   - in_parallel:
-    - put: github-release.chart
+    - get: docker.package-base
+    - get: git.eirinix-helm-release
+    - get: git.chart-repository
+    - get: github-release.chart
+      trigger: {{ $.repos.trigger }}
+      passed: [ chart ]
       params:
-        name: output/version.txt
-        tag: output/version.txt
-        tag_prefix: v
-        commitish: output/commit.txt
-        globs: [ output/eirini-extensions-*.tgz ]
-    - do:
-      - get: git.chart-repository
-      - task: regenerate-chart-repo
-        config:
-          platform: linux
-          inputs:
-          - name: git.chart-repository
-          - name: output
-          outputs:
-          - name: git.chart-repository
-          params:
-            GIT_AUTHOR_NAME: {{ $.git.user }}
-            GIT_AUTHOR_EMAIL: {{ $.git.email }}
-            FULL_REPO: {{ index $.repos "eirinix-helm-release" }}
-          run:
-            dir: git.chart-repository
-            path: /bin/sh
-            args:
-            - -c
-            - >
-              set -o errexit -o nounset -o xtrace ;
-              VERSION="$(cat ../output/version.txt)" ;
-              ORG="${FULL_REPO%%/*}" ;
-              REPO="${FULL_REPO#*/}" ;
-              URL="https://${ORG}.github.io/${REPO}/" ;
-              cp ../output/eirini-extensions-*.tgz . ;
-              helm repo index --merge index.yaml --url "${URL}" . ;
-              git config --global user.name  "$GIT_AUTHOR_NAME" ;
-              git config --global user.email "$GIT_AUTHOR_EMAIL" ;
-              git add "eirini-extensions-${VERSION}"*.tgz index.yaml ;
-              git commit -m "Add version ${VERSION}" ;
-        image: docker.package-base
-      - put: git.chart-repository
-        params:
-          repository: git.chart-repository
+        globs: [ eirini-extensions-*.tgz ]
+  - task: regenerate-chart-repo
+    config:
+      platform: linux
+      inputs:
+      - name: git.chart-repository
+      - name: git.eirinix-helm-release
+      - name: github-release.chart
+      outputs:
+      - name: git.chart-repository
+      params:
+        GIT_AUTHOR_NAME: {{ $.git.user }}
+        GIT_AUTHOR_EMAIL: {{ $.git.email }}
+        REPO: {{ index $.repos "eirinix-helm-release" }}
+      run:
+        path: ../git.eirinix-helm-release/bin/update-helm-index.rb
+        dir: git.chart-repository
+        args: [ ../github-release.chart ]
+    image: docker.package-base
+  - put: git.chart-repository
+    params:
+      repository: git.chart-repository
