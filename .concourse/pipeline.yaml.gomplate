@@ -71,8 +71,9 @@
         args:
         - -c
         - >
-          git config --global user.name  $GIT_AUTHOR_NAME ;
-          git config --global user.email $GIT_AUTHOR_EMAIL ;
+          set -o errexit -o nounset ;
+          git config --global user.name  "$GIT_AUTHOR_NAME" ;
+          git config --global user.email "$GIT_AUTHOR_EMAIL" ;
           (
             cd src ;
             if [ -r bin/include/versioning ] ; then
@@ -118,6 +119,12 @@ resources:
     branch: master
     uri: https://github.com/{{ index $.repos . }}
 {{ end }}
+- name: git.chart-repository
+  type: git
+  source:
+    branch: gh-pages
+    uri: git@github.com:{{ index $.repos "eirinix-helm-release" }}
+    private_key: {{ $.repos.key }}
 - name: github-release.chart
   type: github-release
   source:
@@ -256,10 +263,46 @@ jobs:
           setup-image:
             repository: {{ $.docker.repository }}
             tag: <%= File.read('../s3.ssh-proxy-setup-version/version') %>
-  - put: github-release.chart
-    params:
-      name: output/version.txt
-      tag: output/version.txt
-      tag_prefix: v
-      commitish: output/commit.txt
-      globs: [ output/eirini-extensions-*.tgz ]
+  - in_parallel:
+    - put: github-release.chart
+      params:
+        name: output/version.txt
+        tag: output/version.txt
+        tag_prefix: v
+        commitish: output/commit.txt
+        globs: [ output/eirini-extensions-*.tgz ]
+    - do:
+      - get: git.chart-repository
+      - task: regenerate-chart-repo
+        config:
+          platform: linux
+          inputs:
+          - name: git.chart-repository
+          - name: output
+          outputs:
+          - name: git.chart-repository
+          params:
+            GIT_AUTHOR_NAME: {{ $.git.user }}
+            GIT_AUTHOR_EMAIL: {{ $.git.email }}
+            FULL_REPO: {{ index $.repos "eirinix-helm-release" }}
+          run:
+            dir: git.chart-repository
+            path: /bin/sh
+            args:
+            - -c
+            - >
+              set -o errexit -o nounset -o xtrace ;
+              VERSION="$(cat ../output/version.txt)" ;
+              ORG="${FULL_REPO%%/*}" ;
+              REPO="${FULL_REPO#*/}" ;
+              URL="https://${ORG}.github.io/${REPO}/" ;
+              cp ../output/eirini-extensions-*.tgz . ;
+              helm repo index --merge index.yaml --url "${URL}" . ;
+              git config --global user.name  "$GIT_AUTHOR_NAME" ;
+              git config --global user.email "$GIT_AUTHOR_EMAIL" ;
+              git add "eirini-extensions-${VERSION}"*.tgz index.yaml ;
+              git commit -m "Add version ${VERSION}" ;
+        image: docker.package-base
+      - put: git.chart-repository
+        params:
+          repository: git.chart-repository
