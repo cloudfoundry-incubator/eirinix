@@ -8,8 +8,8 @@
 
 {{- /* $.docker */ -}}
 {{- $ = dict | dict "docker" | merge $ -}}
-{{- /* .docker.org */ -}}
-{{- $ = merge (index $.docker "org" | default "splatform" | dict "org" | dict "docker") $ -}}
+{{- /* .docker.repository */ -}}
+{{- $ = merge (index $.docker "repository" | default "splatform" | dict "repository" | dict "docker") $ -}}
 {{- /* .git */ -}}
 {{- $ = dict | dict "git" | merge $ -}}
 {{- /* .git.user */ -}}
@@ -120,7 +120,7 @@ resources:
 - name: docker.{{ . }}
   type: docker-image
   source:
-    repository: {{ $.docker.org }}/eirinix-{{ . }}
+    repository: {{ $.docker.repository }}/eirinix-{{ . }}
     username:   ((docker-username))
     password:   ((docker-password))
 - name: s3.{{ . }}-version
@@ -142,7 +142,7 @@ resources:
 - name: docker.package-base
   type: docker-image
   source:
-    repository: {{ $.docker.org }}/eirinix-package-base
+    repository: {{ $.docker.repository }}/eirinix-package-base
     username:   ((docker-username))
     password:   ((docker-password))
 
@@ -234,21 +234,21 @@ jobs:
         {{- if . | strings.HasSuffix "-setup" | not }}
         {{ . }}:
           image:
-            repository: {{ $.docker.org }}
+            repository: {{ $.docker.repository }}
             tag: <%= File.read('../s3.{{ . }}-version/version') %>
           {{- if printf "%s-setup" . | has $images }}
           setup-image:
-            repository: {{ $.docker.org }}
+            repository: {{ $.docker.repository }}
             tag: <%= File.read('../s3.{{ . }}-setup-version/version') %>
           {{- end }}
         {{- end }}
         {{- end }}
         ssh-proxy:
           image:
-            repository: {{ $.docker.org }}
+            repository: {{ $.docker.repository }}
             tag: <%= File.read('../s3.ssh-version/version') %>
           setup-image:
-            repository: {{ $.docker.org }}
+            repository: {{ $.docker.repository }}
             tag: <%= File.read('../s3.ssh-proxy-setup-version/version') %>
   - put: s3.chart
     params:
