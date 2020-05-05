@@ -102,7 +102,7 @@
 
 groups:
 - name: chart
-  jobs: [ package-base, chart, update-repo ]
+  jobs: [ package-base, chart ]
 - name: logging
   jobs: [ loggregator-bridge ]
 - name: persi
@@ -119,12 +119,6 @@ resources:
     branch: master
     uri: https://github.com/{{ index $.repos . }}
 {{ end }}
-- name: git.chart-repository
-  type: git
-  source:
-    branch: gh-pages
-    uri: git@github.com:{{ index $.repos "eirinix-helm-release" }}
-    private_key: {{ $.repos.key }}
 - name: github-release.chart
   type: github-release
   source:
@@ -269,36 +263,4 @@ jobs:
       tag_prefix: v
       commitish: output/commit.txt
       globs: [ output/eirini-extensions-*.tgz ]
-- name: update-repo
-  serial: true
-  plan:
-  - in_parallel:
-    - get: docker.package-base
-    - get: git.eirinix-helm-release
-    - get: git.chart-repository
-    - get: github-release.chart
-      trigger: {{ $.repos.trigger }}
-      passed: [ chart ]
-      params:
-        globs: [ eirini-extensions-*.tgz ]
-  - task: regenerate-chart-repo
-    config:
-      platform: linux
-      inputs:
-      - name: git.chart-repository
-      - name: git.eirinix-helm-release
-      - name: github-release.chart
-      outputs:
-      - name: git.chart-repository
-      params:
-        GIT_AUTHOR_NAME: {{ $.git.user }}
-        GIT_AUTHOR_EMAIL: {{ $.git.email }}
-        REPO: {{ index $.repos "eirinix-helm-release" }}
-      run:
-        path: ../git.eirinix-helm-release/bin/update-helm-index.rb
-        dir: git.chart-repository
-        args: [ ../github-release.chart ]
-    image: docker.package-base
-  - put: git.chart-repository
-    params:
-      repository: git.chart-repository
+      body: output/body.txt
