@@ -3,6 +3,8 @@
 
 docker:
   repository: ~ # splatform
+  username: ((docker-username))
+  password: ((docker-password))
 
 git:
   user: ~  # SUSE CFCIBot
