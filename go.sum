@@ -22,6 +22,8 @@ code.cloudfoundry.org/quarks-job v0.0.0-20200109094705-4db12e77f5e6 h1:ShATyI/te
 code.cloudfoundry.org/quarks-job v0.0.0-20200109094705-4db12e77f5e6/go.mod h1:UoFtaj5zIi4N2q/tE6kqTK6+XbaBguaIFohTdenU5lE=
 code.cloudfoundry.org/quarks-job v0.0.0-20200413001825-770abf29e906 h1:/E5aUwMcPreis3UK4PtotpHQHRKFLP79NIuBb0EWL1k=
 code.cloudfoundry.org/quarks-job v0.0.0-20200413001825-770abf29e906/go.mod h1:sUVpg32Ks2/cIxsN0Jn0jzqUF70Sv8uB9ndXSf9z5+8=
+code.cloudfoundry.org/quarks-operator v1.0.1-0.20200413083459-fb39a29ad746 h1:XHSRAI6VFSzeRHCkEuK6GNhqKGDVoQZPIXdavUkkpII=
+code.cloudfoundry.org/quarks-operator v1.0.1-0.20200413083459-fb39a29ad746/go.mod h1:ha//1hiEzpXqf3SvQnqFxUiEhU/mpJRv9TsAj+ztzoY=
 code.cloudfoundry.org/quarks-utils v0.0.0-20191220014113-dab838a1c0be/go.mod h1:H6fVNegFsTZqOU2Cggvue8X5vfAdeGDKemikmwc7RBc=
 code.cloudfoundry.org/quarks-utils v0.0.0-20200107151858-94a806988b47 h1:xJVHCi4WEKHkE8kIEq/eUo0tM7OCPXvPo0+JuD+KyFg=
 code.cloudfoundry.org/quarks-utils v0.0.0-20200107151858-94a806988b47/go.mod h1:H6fVNegFsTZqOU2Cggvue8X5vfAdeGDKemikmwc7RBc=
