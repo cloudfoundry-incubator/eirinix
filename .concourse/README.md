@@ -32,5 +32,5 @@ Deploy the pipeline using the `fly` script in this directory:
 ### Pipeline development
 
 If you wish to deploy a copy of this pipeline for development (without
-publishing) artifacts to the official places), create a `configl.yaml` file
+publishing) artifacts to the official places), create a `config.yaml` file
 based on `config.yaml.sample` and deploy normally.
