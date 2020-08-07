@@ -10,7 +10,6 @@ import (
 
 	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen"
 	gfakes "code.cloudfoundry.org/cf-operator/pkg/credsgen/fakes"
-	testing_utils "code.cloudfoundry.org/quarks-utils/testing"
 
 	. "github.com/SUSE/eirinix"
 	catalog "github.com/SUSE/eirinix/testing"
@@ -69,7 +68,7 @@ var _ = Describe("Extension Manager", func() {
 		generator = &gfakes.FakeGenerator{}
 		generator.GenerateCertificateReturns(credsgen.Certificate{Certificate: []byte("thecert")}, nil)
 
-		ctx = testing_utils.NewContext()
+		ctx = catalog.NewContext()
 
 		eiriniManager.Context = ctx
 		eiriniManager.KubeManager = manager
