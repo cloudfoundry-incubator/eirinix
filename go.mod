@@ -1,9 +1,12 @@
 module github.com/SUSE/eirinix
 
 require (
-	code.cloudfoundry.org/cf-operator v1.0.1-0.20200413083459-fb39a29ad746
-	code.cloudfoundry.org/quarks-utils v0.0.0-20200331122601-bc0838ffea60
+	code.cloudfoundry.org/quarks-utils v0.0.0-20200807095127-abd23fde8bb1
 	github.com/go-logr/logr v0.1.0
+	github.com/go-sql-driver/mysql v1.4.1 // indirect
+	github.com/jmoiron/sqlx v1.2.0 // indirect
+	github.com/lib/pq v1.2.0 // indirect
+	github.com/mattn/go-sqlite3 v1.11.0 // indirect
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
