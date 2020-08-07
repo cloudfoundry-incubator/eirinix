@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen"
-	gfakes "code.cloudfoundry.org/cf-operator/pkg/credsgen/fakes"
+	credsgen "code.cloudfoundry.org/quarks-utils/pkg/credsgen"
+	gfakes "code.cloudfoundry.org/quarks-utils/pkg/credsgen/fakes"
 
 	. "github.com/SUSE/eirinix"
 	catalog "github.com/SUSE/eirinix/testing"

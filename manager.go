@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"time"
 
-	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
-	inmemorycredgen "code.cloudfoundry.org/cf-operator/pkg/credsgen/in_memory_generator"
 	config "code.cloudfoundry.org/quarks-utils/pkg/config"
+	"code.cloudfoundry.org/quarks-utils/pkg/credsgen/"
+	inmemorycredgen "code.cloudfoundry.org/quarks-utils/pkg/credsgen/in_memory_generator"
 	kubeConfig "code.cloudfoundry.org/quarks-utils/pkg/kubeconfig"
 	"github.com/SUSE/eirinix/util/ctxlog"
 	"github.com/pkg/errors"

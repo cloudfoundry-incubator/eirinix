@@ -10,8 +10,8 @@ import (
 	"path"
 	"strconv"
 
-	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
 	config "code.cloudfoundry.org/quarks-utils/pkg/config"
+	"code.cloudfoundry.org/quarks-utils/pkg/credsgen"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
