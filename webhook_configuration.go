@@ -10,7 +10,6 @@ import (
 	"path"
 	"strconv"
 
-	config "code.cloudfoundry.org/quarks-utils/pkg/config"
 	"code.cloudfoundry.org/quarks-utils/pkg/credsgen"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
@@ -38,12 +37,12 @@ type WebhookConfig struct {
 	setupCertificateName          string
 
 	client    client.Client
-	config    *config.Config
+	config    *Config
 	generator credsgen.Generator
 }
 
 // NewWebhookConfig returns a new WebhookConfig
-func NewWebhookConfig(c client.Client, config *config.Config, generator credsgen.Generator, configName string, setupCertificateName string, serviceName string, webhookNamespace string) *WebhookConfig {
+func NewWebhookConfig(c client.Client, config *Config, generator credsgen.Generator, configName string, setupCertificateName string, serviceName string, webhookNamespace string) *WebhookConfig {
 	return &WebhookConfig{
 		ConfigName:           configName,
 		CertDir:              path.Join(os.TempDir(), setupCertificateName),

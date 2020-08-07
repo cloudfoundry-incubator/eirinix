@@ -8,8 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	config "code.cloudfoundry.org/quarks-utils/pkg/config"
-	"code.cloudfoundry.org/quarks-utils/pkg/credsgen/"
+	"code.cloudfoundry.org/quarks-utils/pkg/credsgen"
 	inmemorycredgen "code.cloudfoundry.org/quarks-utils/pkg/credsgen/in_memory_generator"
 	kubeConfig "code.cloudfoundry.org/quarks-utils/pkg/kubeconfig"
 	"github.com/SUSE/eirinix/util/ctxlog"
@@ -137,6 +136,17 @@ type ManagerOptions struct {
 	// WatcherStartRV is the starting ResourceVersion of the PodList which is being watched (see Kubernetes #74022).
 	// If omitted, it will start watching from the current RV.
 	WatcherStartRV string
+}
+
+// Config controls the behaviour of different controllers
+type Config struct {
+	CtxTimeOut time.Duration
+
+	// Namespace that is being watched by controllers
+	Namespace         string
+	WebhookServerHost string
+	WebhookServerPort int32
+	Fs                afero.Fs
 }
 
 var addToSchemes = runtime.SchemeBuilder{}
@@ -301,7 +311,7 @@ func (m *DefaultExtensionManager) GenWebHookServer() {
 	m.Context = ctxlog.NewManagerContext(m.Logger)
 	m.WebhookConfig = NewWebhookConfig(
 		m.KubeManager.GetClient(),
-		&config.Config{
+		&Config{
 			CtxTimeOut:        10 * time.Second,
 			Namespace:         m.Options.Namespace,
 			WebhookServerHost: m.Options.Host,
@@ -492,6 +502,8 @@ func (m *DefaultExtensionManager) Watch() error {
 	if err != nil {
 		return err
 	}
+	m.Context = ctxlog.NewManagerContext(m.Logger)
+
 	m.watcher = watcher
 
 	m.ReadWatcherEvent(watcher)
