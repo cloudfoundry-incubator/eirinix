@@ -10,7 +10,7 @@ import (
 	"path"
 	"strconv"
 
-	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
+	"code.cloudfoundry.org/quarks-secret/pkg/credsgen"
 	config "code.cloudfoundry.org/quarks-utils/pkg/config"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"

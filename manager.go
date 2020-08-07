@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"time"
 
-	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
-	inmemorycredgen "code.cloudfoundry.org/cf-operator/pkg/credsgen/in_memory_generator"
+	"code.cloudfoundry.org/quarks-secret/pkg/credsgen"
+	inmemorycredgen "code.cloudfoundry.org/quarks-secret/pkg/credsgen/in_memory_generator"
 	config "code.cloudfoundry.org/quarks-utils/pkg/config"
 	kubeConfig "code.cloudfoundry.org/quarks-utils/pkg/kubeconfig"
 	"github.com/SUSE/eirinix/util/ctxlog"
