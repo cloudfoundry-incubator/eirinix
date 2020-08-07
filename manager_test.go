@@ -8,9 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	credsgen "code.cloudfoundry.org/cf-operator/pkg/credsgen"
-	gfakes "code.cloudfoundry.org/cf-operator/pkg/credsgen/fakes"
-	testing_utils "code.cloudfoundry.org/quarks-utils/testing"
+	credsgen "code.cloudfoundry.org/quarks-utils/pkg/credsgen"
+	gfakes "code.cloudfoundry.org/quarks-utils/pkg/credsgen/fakes"
 
 	. "github.com/SUSE/eirinix"
 	catalog "github.com/SUSE/eirinix/testing"
@@ -69,7 +68,7 @@ var _ = Describe("Extension Manager", func() {
 		generator = &gfakes.FakeGenerator{}
 		generator.GenerateCertificateReturns(credsgen.Certificate{Certificate: []byte("thecert")}, nil)
 
-		ctx = testing_utils.NewContext()
+		ctx = catalog.NewContext()
 
 		eiriniManager.Context = ctx
 		eiriniManager.KubeManager = manager
@@ -256,7 +255,7 @@ var _ = Describe("Extension Manager", func() {
 			fakeWatch := &cfakes.FakeInterface{}
 			var label string
 
-			fakePod.WatchCalls(func(m metav1.ListOptions) (watch.Interface, error) {
+			fakePod.WatchCalls(func(ctx context.Context, m metav1.ListOptions) (watch.Interface, error) {
 				label = m.LabelSelector
 				return fakeWatch, nil
 			})
@@ -293,7 +292,7 @@ var _ = Describe("Extension Manager", func() {
 			fakeWatch := &cfakes.FakeInterface{}
 			label := "foo"
 
-			fakePod.WatchCalls(func(m metav1.ListOptions) (watch.Interface, error) {
+			fakePod.WatchCalls(func(ctx context.Context, m metav1.ListOptions) (watch.Interface, error) {
 				label = m.LabelSelector
 				return fakeWatch, nil
 			})

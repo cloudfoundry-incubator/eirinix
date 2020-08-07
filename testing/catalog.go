@@ -4,15 +4,14 @@
 package testing
 
 import (
-	operator_catalog "code.cloudfoundry.org/cf-operator/testing"
-	testing_utils "code.cloudfoundry.org/quarks-utils/testing"
 	"context"
+	"os"
+	"strconv"
+
 	eirinix "github.com/SUSE/eirinix"
 	"github.com/phayes/freeport"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/watch"
-	"os"
-	"strconv"
 )
 
 // NewCatalog returns a Catalog, our helper for test cases
@@ -21,18 +20,17 @@ func NewCatalog() Catalog {
 	if err != nil {
 		panic(err) // Cannot allocate free ports! everything will fail!
 	}
-	return Catalog{Catalog: &operator_catalog.Catalog{}, ServicePort: int32(port), KindHost: "172.17.0.1"}
+	return Catalog{ServicePort: int32(port), KindHost: "172.17.0.1"}
 }
 
 // NewContext returns a non-nil empty context, for usage when it is unclear
 // which context to use.  Mostly used in tests.
 func NewContext() context.Context {
-	return testing_utils.NewContext()
+	return context.TODO()
 }
 
 // Catalog provides several instances for test, based on the cf-operator's catalog
 type Catalog struct {
-	*operator_catalog.Catalog
 	ServicePort int32
 	KindHost    string
 }

@@ -8,9 +8,8 @@ import (
 	"strconv"
 	"time"
 
-	"code.cloudfoundry.org/cf-operator/pkg/credsgen"
-	inmemorycredgen "code.cloudfoundry.org/cf-operator/pkg/credsgen/in_memory_generator"
-	config "code.cloudfoundry.org/quarks-utils/pkg/config"
+	"code.cloudfoundry.org/quarks-utils/pkg/credsgen"
+	inmemorycredgen "code.cloudfoundry.org/quarks-utils/pkg/credsgen/in_memory_generator"
 	kubeConfig "code.cloudfoundry.org/quarks-utils/pkg/kubeconfig"
 	"github.com/SUSE/eirinix/util/ctxlog"
 	"github.com/pkg/errors"
@@ -18,7 +17,6 @@ import (
 	"go.uber.org/zap"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -140,6 +138,17 @@ type ManagerOptions struct {
 	WatcherStartRV string
 }
 
+// Config controls the behaviour of different controllers
+type Config struct {
+	CtxTimeOut time.Duration
+
+	// Namespace that is being watched by controllers
+	Namespace         string
+	WebhookServerHost string
+	WebhookServerPort int32
+	Fs                afero.Fs
+}
+
 var addToSchemes = runtime.SchemeBuilder{}
 
 // AddToScheme adds all Resources to the Scheme
@@ -246,7 +255,7 @@ func (m *DefaultExtensionManager) GenWatcher(client corev1client.CoreV1Interface
 	startResourceVersion := m.Options.WatcherStartRV
 
 	if startResourceVersion == "" {
-		lw := cache.NewListWatchFromClient(client.RESTClient(), "pods", v1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(client.RESTClient(), "pods", m.Options.Namespace, fields.Everything())
 		list, err := lw.List(metav1.ListOptions{})
 		if err != nil {
 			return nil, err
@@ -268,7 +277,7 @@ func (m *DefaultExtensionManager) GenWatcher(client corev1client.CoreV1Interface
 				options.LabelSelector = LabelSourceType + "=APP"
 			}
 
-			return podInterface.Watch(options)
+			return podInterface.Watch(m.Context, options)
 		}})
 }
 
@@ -302,7 +311,7 @@ func (m *DefaultExtensionManager) GenWebHookServer() {
 	m.Context = ctxlog.NewManagerContext(m.Logger)
 	m.WebhookConfig = NewWebhookConfig(
 		m.KubeManager.GetClient(),
-		&config.Config{
+		&Config{
 			CtxTimeOut:        10 * time.Second,
 			Namespace:         m.Options.Namespace,
 			WebhookServerHost: m.Options.Host,
@@ -493,6 +502,8 @@ func (m *DefaultExtensionManager) Watch() error {
 	if err != nil {
 		return err
 	}
+	m.Context = ctxlog.NewManagerContext(m.Logger)
+
 	m.watcher = watcher
 
 	m.ReadWatcherEvent(watcher)
