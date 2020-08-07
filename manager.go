@@ -18,7 +18,6 @@ import (
 	"go.uber.org/zap"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -246,7 +245,7 @@ func (m *DefaultExtensionManager) GenWatcher(client corev1client.CoreV1Interface
 	startResourceVersion := m.Options.WatcherStartRV
 
 	if startResourceVersion == "" {
-		lw := cache.NewListWatchFromClient(client.RESTClient(), "pods", v1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(client.RESTClient(), "pods", m.Options.Namespace, fields.Everything())
 		list, err := lw.List(metav1.ListOptions{})
 		if err != nil {
 			return nil, err
@@ -268,7 +267,7 @@ func (m *DefaultExtensionManager) GenWatcher(client corev1client.CoreV1Interface
 				options.LabelSelector = LabelSourceType + "=APP"
 			}
 
-			return podInterface.Watch(options)
+			return podInterface.Watch(m.Context, options)
 		}})
 }
 
