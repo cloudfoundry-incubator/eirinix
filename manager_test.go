@@ -160,6 +160,17 @@ var _ = Describe("Extension Manager", func() {
 
 	})
 
+	It("doesn't set the operator namespace label if no namespace if defined", func() {
+		eiriniManager.Options.Namespace = ""
+		err := eiriniManager.OperatorSetup()
+		Expect(err).ToNot(HaveOccurred())
+
+		err = eiriniManager.LoadExtensions()
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(client.UpdateCallCount()).To(Equal(0))
+	})
+
 	Context("if there is a persisted cert secret already", func() {
 		BeforeEach(func() {
 			secret := &unstructured.Unstructured{
