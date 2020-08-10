@@ -199,7 +199,7 @@ var _ = Describe("Extension Manager", func() {
 		It("generates the webhook configuration", func() {
 			client.CreateCalls(func(context context.Context, object runtime.Object, _ ...crc.CreateOption) error {
 				config := object.(*admissionregistrationv1beta1.MutatingWebhookConfiguration)
-				Expect(config.Name).To(Equal("eirini-x-mutating-hook-" + config.Namespace))
+				Expect(config.Name).To(Equal("eirini-x-mutating-hook"))
 				Expect(len(config.Webhooks)).To(Equal(1))
 
 				wh := config.Webhooks[0]

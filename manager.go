@@ -319,7 +319,7 @@ func (m *DefaultExtensionManager) GenWebHookServer() {
 			Fs:                afero.NewOsFs(),
 		},
 		m.Credsgen,
-		fmt.Sprintf("%s-mutating-hook-%s", m.Options.OperatorFingerprint, m.Options.Namespace),
+		fmt.Sprintf("%s-mutating-hook", m.Options.OperatorFingerprint),
 		m.Options.SetupCertificateName,
 		m.Options.ServiceName,
 		m.Options.WebhookNamespace)
@@ -337,8 +337,10 @@ func (m *DefaultExtensionManager) OperatorSetup() error {
 
 	m.GenWebHookServer()
 
-	if err := m.setOperatorNamespaceLabel(); err != nil {
-		return errors.Wrap(err, "setting the operator namespace label")
+	if m.Options.Namespace != "" {
+		if err := m.setOperatorNamespaceLabel(); err != nil {
+			return errors.Wrap(err, "setting the operator namespace label")
+		}
 	}
 
 	if *m.Options.SetupCertificate {
