@@ -160,6 +160,17 @@ var _ = Describe("Extension Manager", func() {
 
 	})
 
+	It("doesn't set the operator namespace label if no namespace if defined", func() {
+		eiriniManager.Options.Namespace = ""
+		err := eiriniManager.OperatorSetup()
+		Expect(err).ToNot(HaveOccurred())
+
+		err = eiriniManager.LoadExtensions()
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(client.UpdateCallCount()).To(Equal(0))
+	})
+
 	Context("if there is a persisted cert secret already", func() {
 		BeforeEach(func() {
 			secret := &unstructured.Unstructured{
@@ -199,7 +210,7 @@ var _ = Describe("Extension Manager", func() {
 		It("generates the webhook configuration", func() {
 			client.CreateCalls(func(context context.Context, object runtime.Object, _ ...crc.CreateOption) error {
 				config := object.(*admissionregistrationv1beta1.MutatingWebhookConfiguration)
-				Expect(config.Name).To(Equal("eirini-x-mutating-hook-" + config.Namespace))
+				Expect(config.Name).To(Equal("eirini-x-mutating-hook"))
 				Expect(len(config.Webhooks)).To(Equal(1))
 
 				wh := config.Webhooks[0]

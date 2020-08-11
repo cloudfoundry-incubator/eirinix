@@ -149,7 +149,9 @@ func (w *DefaultMutatingWebhook) RegisterAdmissionWebHook(server *webhook.Server
 	w.Path = fmt.Sprintf("/%s", opts.ID)
 
 	w.Name = fmt.Sprintf("%s.%s.org", opts.ID, opts.ManagerOptions.OperatorFingerprint)
-	w.NamespaceSelector = w.getNamespaceSelector(opts)
+	if opts.ManagerOptions.Namespace != "" {
+		w.NamespaceSelector = w.getNamespaceSelector(opts)
+	}
 	w.Webhook = &admission.Webhook{
 		Handler: w,
 	}

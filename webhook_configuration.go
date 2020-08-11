@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/afero"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -60,7 +61,7 @@ func NewWebhookConfig(c client.Client, config *Config, generator credsgen.Genera
 func (f *WebhookConfig) setupCertificate(ctx context.Context) error {
 	secretNamespacedName := machinerytypes.NamespacedName{
 		Name:      f.setupCertificateName,
-		Namespace: f.config.Namespace,
+		Namespace: f.webhookNamespace,
 	}
 
 	// We have to query for the Secret using an unstructured object because the cache for the structured
@@ -71,7 +72,10 @@ func (f *WebhookConfig) setupCertificate(ctx context.Context) error {
 		Kind:    "Secret",
 		Version: "v1",
 	})
-	f.client.Get(ctx, secretNamespacedName, secret)
+	err := f.client.Get(ctx, secretNamespacedName, secret)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
 
 	if secret.GetName() != "" {
 		ctxlog.Info(ctx, "Not creating the webhook server certificate because it already exists")
@@ -158,7 +162,7 @@ func (f *WebhookConfig) setupCertificate(ctx context.Context) error {
 		f.Certificate = cert.Certificate
 	}
 
-	err := f.writeSecretFiles()
+	err = f.writeSecretFiles()
 	if err != nil {
 		return errors.Wrap(err, "writing webhook certificate files to disk")
 	}

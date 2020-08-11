@@ -49,10 +49,7 @@ type Pod struct {
 }
 
 func (p *Pod) IsRunning() bool {
-	if p.PodStatus.Phase == "Running" {
-		return true
-	}
-	return false
+	return p.PodStatus.Phase == "Running"
 }
 
 func KubePodStatus(podname, n string) (*Pod, error) {
