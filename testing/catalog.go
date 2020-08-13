@@ -74,7 +74,7 @@ func (c *Catalog) IntegrationManagerFiltered(b bool, n string) eirinix.Manager {
 			Port:             c.ServicePort,
 			KubeConfig:       os.Getenv("KUBECONFIG"),
 			ServiceName:      "eirinix",
-			WebhookNamespace: n,
+			WebhookNamespace: "default",
 			FilterEiriniApps: &b,
 		})
 }
