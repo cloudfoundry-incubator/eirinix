@@ -5,9 +5,9 @@ import (
 
 	credsgen "code.cloudfoundry.org/quarks-utils/pkg/credsgen"
 	gfakes "code.cloudfoundry.org/quarks-utils/pkg/credsgen/fakes"
-	. "github.com/SUSE/eirinix"
-	catalog "github.com/SUSE/eirinix/testing"
-	cfakes "github.com/SUSE/eirinix/testing/fakes"
+	. "code.cloudfoundry.org/eirinix"
+	catalog "code.cloudfoundry.org/eirinix/testing"
+	cfakes "code.cloudfoundry.org/eirinix/testing/fakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"

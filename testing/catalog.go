@@ -8,7 +8,7 @@ import (
 	"os"
 	"strconv"
 
-	eirinix "github.com/SUSE/eirinix"
+	eirinix "code.cloudfoundry.org/eirinix"
 	"github.com/phayes/freeport"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/watch"
