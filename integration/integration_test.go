@@ -3,8 +3,8 @@ package integration_test
 import (
 	"time"
 
-	extension "github.com/SUSE/eirinix"
-	catalog "github.com/SUSE/eirinix/testing"
+	extension "code.cloudfoundry.org/eirinix"
+	catalog "code.cloudfoundry.org/eirinix/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
