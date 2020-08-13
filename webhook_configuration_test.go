@@ -10,15 +10,16 @@ import (
 	cfakes "github.com/SUSE/eirinix/testing/fakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 var _ = Describe("Webhook configuration implementation", func() {
-
 	var (
 		manager                             *cfakes.FakeManager
 		client                              *cfakes.FakeClient
@@ -98,6 +99,30 @@ var _ = Describe("Webhook configuration implementation", func() {
 			Expect(admissions[0].ClientConfig.Service.Name).To(Equal("extension"))
 			Expect(admissions[0].ClientConfig.Service.Namespace).To(Equal("cf"))
 			Expect(admissions[0].ClientConfig.Service.Path).To(Equal(&url))
+		})
+	})
+
+	Context("with eirini filtering turned on", func() {
+		It("adds an ObjectSelector to the webhook config", func() {
+			w := NewWebhook(eirinixcatalog.SimpleExtension(), eiriniServiceManager)
+
+			filter := true
+			err := w.RegisterAdmissionWebHook(eiriniManager.WebhookServer, WebhookOptions{ID: "volume", ManagerOptions: ManagerOptions{
+				FailurePolicy:       &failurePolicy,
+				Namespace:           "eirini",
+				OperatorFingerprint: "eirini-x",
+				FilterEiriniApps:    &filter,
+			}})
+			Expect(err).ToNot(HaveOccurred())
+			eiriniServiceManager.GenWebHookServer()
+			admissions := eiriniServiceManager.WebhookConfig.GenerateAdmissionWebhook([]MutatingWebhook{w})
+
+			Expect(admissions).To(HaveLen(1))
+			Expect(admissions[0].ObjectSelector).To(PointTo(Equal(metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					LabelSourceType: "APP",
+				},
+			})))
 		})
 	})
 })

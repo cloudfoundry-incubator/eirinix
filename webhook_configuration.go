@@ -208,6 +208,7 @@ func (f *WebhookConfig) GenerateAdmissionWebhook(webhooks []MutatingWebhook) []a
 			FailurePolicy:     &p,
 			NamespaceSelector: webhook.GetNamespaceSelector(),
 			ClientConfig:      clientConfig,
+			ObjectSelector:    webhook.GetLabelSelector(),
 		}
 
 		mutatingHooks = append(mutatingHooks, wh)
