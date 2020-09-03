@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
@@ -39,6 +40,15 @@ type Extension interface {
 // namespace.
 type Watcher interface {
 	Handle(Manager, watch.Event)
+}
+
+// Reconciler is the Eirini Reconciler Extension interface
+//
+// An Eirini Reconciler must implement a Reconcile method which is called when
+// a new request is being created.
+type Reconciler interface {
+	Reconcile(request reconcile.Request) (reconcile.Result, error)
+	Register(Manager) error
 }
 
 // MutatingWebhook is the interface of the generated webhook
