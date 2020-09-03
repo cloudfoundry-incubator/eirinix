@@ -104,8 +104,7 @@ metadata:
 spec:
   ports:
   - protocol: TCP
-    port: 443
-    targetPort: ` + strconv.Itoa(int(c.ServicePort)) + `
+    port: ` + strconv.Itoa(int(c.ServicePort)) + `
 ---
 apiVersion: v1
 kind: Endpoints
@@ -252,7 +251,7 @@ func (c *Catalog) SimpleManagerService() eirinix.Manager {
 		eirinix.ManagerOptions{
 			Namespace:        "eirini",
 			Host:             "0.0.0.0",
-			Port:             0,
+			Port:             8001,
 			ServiceName:      "extension",
 			WebhookNamespace: "cf",
 		})

@@ -3,11 +3,11 @@ package extension_test
 import (
 	"context"
 
-	credsgen "code.cloudfoundry.org/quarks-utils/pkg/credsgen"
-	gfakes "code.cloudfoundry.org/quarks-utils/pkg/credsgen/fakes"
 	. "code.cloudfoundry.org/eirinix"
 	catalog "code.cloudfoundry.org/eirinix/testing"
 	cfakes "code.cloudfoundry.org/eirinix/testing/fakes"
+	credsgen "code.cloudfoundry.org/quarks-utils/pkg/credsgen"
+	gfakes "code.cloudfoundry.org/quarks-utils/pkg/credsgen/fakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -94,10 +94,12 @@ var _ = Describe("Webhook configuration implementation", func() {
 			admissions := eiriniServiceManager.WebhookConfig.GenerateAdmissionWebhook([]MutatingWebhook{w})
 			Expect(len(admissions)).To(Equal(1))
 			url := "/volume"
+			port := int32(8001)
 
 			Expect(admissions[0].ClientConfig.URL).To(BeNil())
 			Expect(admissions[0].ClientConfig.Service.Name).To(Equal("extension"))
 			Expect(admissions[0].ClientConfig.Service.Namespace).To(Equal("cf"))
+			Expect(admissions[0].ClientConfig.Service.Port).To(Equal(&port))
 			Expect(admissions[0].ClientConfig.Service.Path).To(Equal(&url))
 		})
 	})
