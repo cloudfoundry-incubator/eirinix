@@ -334,7 +334,7 @@ func deleteNamespace(name string) {
 func EventuallyExtensionShouldBeRegistered() {
 	EventuallyWithOffset(1, func() (string, error) {
 		return catalog.Kubectl([]string{}, "get", "mutatingwebhookconfiguration")
-	}, time.Duration(60*time.Second), time.Duration(5*time.Second)).ShouldNot(ContainSubstring("No resources found in default namespace"))
+	}, time.Duration(60*time.Second), time.Duration(5*time.Second)).ShouldNot(ContainSubstring("No resources found"))
 }
 
 func EventuallyExtensionShouldBe(name string) {
@@ -345,8 +345,8 @@ func EventuallyExtensionShouldBe(name string) {
 
 func ExtensionShouldBeUnregistered() {
 	str, err := catalog.Kubectl([]string{}, "get", "mutatingwebhookconfiguration")
+	ExpectWithOffset(1, str).To(ContainSubstring("No resources found"))
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	ExpectWithOffset(1, str).To(ContainSubstring("No resources found in default namespace"))
 }
 
 func AppShouldHaveSingleContainerWithEnv(app *catalog.EiriniApp, contents []catalog.ContainerEnv) {
