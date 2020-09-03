@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -82,6 +83,11 @@ type Manager interface {
 	// The manager later on, will register the Extension when Start() is being called.
 	AddExtension(e Extension)
 
+	// AddReconciler adds a Reconciler Extension to the manager
+	//
+	// The manager later on, will register the Extension when Start() is being called.
+	AddReconciler(r Reconciler)
+
 	// Start starts the manager infinite loop.
 	//
 	// Registers all the Extensions and generates
@@ -92,6 +98,16 @@ type Manager interface {
 
 	// ListExtensions returns a list of the current loaded Extension
 	ListExtensions() []Extension
+
+	// ListReconcilers returns a list of the current loaded Reconcilers
+	ListReconcilers() []Reconciler
+
+	// GetContext returns the context of the manager, which can be used in internall cals by extension
+	GetContext() context.Context
+
+	// GetKubeManager returns the kubernetes manager which can be used by Reconcilers to perform
+	// direct requests
+	GetKubeManager() manager.Manager
 
 	// GetKubeConnection sets up a kube connection if not already present
 	//

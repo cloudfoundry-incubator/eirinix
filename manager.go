@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"time"
 
+	"code.cloudfoundry.org/eirinix/util/ctxlog"
 	"code.cloudfoundry.org/quarks-utils/pkg/credsgen"
 	inmemorycredgen "code.cloudfoundry.org/quarks-utils/pkg/credsgen/in_memory_generator"
 	kubeConfig "code.cloudfoundry.org/quarks-utils/pkg/kubeconfig"
-	"code.cloudfoundry.org/eirinix/util/ctxlog"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
 	"go.uber.org/zap"
@@ -61,6 +61,9 @@ type DefaultExtensionManager struct {
 
 	// Watchers is the list of Eirini watchers handlers
 	Watchers []Watcher
+
+	// Reconcilers is the list of Eirini Reconcilers
+	Reconcilers []Reconciler
 
 	// KubeManager is the kubernetes manager object which is setted up by the Manager
 	KubeManager manager.Manager
@@ -219,6 +222,28 @@ func (m *DefaultExtensionManager) AddWatcher(w Watcher) {
 // ListWatchers returns the list of the Extensions added to the Manager
 func (m *DefaultExtensionManager) ListWatchers() []Watcher {
 	return m.Watchers
+}
+
+// AddReconciler adds an Erini reconciler Extension to the manager
+func (m *DefaultExtensionManager) AddReconciler(r Reconciler) {
+	m.Reconcilers = append(m.Reconcilers, r)
+}
+
+// ListReconcilers returns the list of the Extensions added to the Manager
+func (m *DefaultExtensionManager) ListReconcilers() []Reconciler {
+	return m.Reconcilers
+}
+
+// GetContext returns the context which can be used by Extensions and Reconcilers to perform
+// background requests
+func (m *DefaultExtensionManager) GetContext() context.Context {
+	return m.Context
+}
+
+// GetKubeManager returns the kubernetes manager which can be used by Reconcilers to perform
+// direct requests
+func (m *DefaultExtensionManager) GetKubeManager() manager.Manager {
+	return m.KubeManager
 }
 
 // GetKubeClient returns a kubernetes Corev1 client interface from the rest config used.
@@ -445,6 +470,12 @@ func (m *DefaultExtensionManager) LoadExtensions() error {
 	if m.Options.RegisterWebHook == nil || m.Options.RegisterWebHook != nil && *m.Options.RegisterWebHook {
 		if err := m.WebhookConfig.registerWebhooks(m.Context, webhooks); err != nil {
 			return errors.Wrap(err, "generating the webhook server configuration")
+		}
+	}
+
+	for _, r := range m.Reconcilers {
+		if err := r.Register(m); err != nil {
+			return err
 		}
 	}
 	return nil
