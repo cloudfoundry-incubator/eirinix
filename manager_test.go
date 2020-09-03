@@ -343,4 +343,19 @@ var _ = Describe("Extension Manager", func() {
 			Expect(len(eiriniServiceManager.ListExtensions())).To(Equal(1))
 		})
 	})
+
+	Context("Reconcilers", func() {
+		r := eirinixcatalog.SimpleReconciler()
+		BeforeEach(func() {
+			r = eirinixcatalog.SimpleReconciler()
+		})
+		It("Registers new reconcilers correctly", func() {
+			eiriniManager.AddReconciler(r)
+			Expect(len(eiriniManager.ListReconcilers())).To(Equal(1))
+			eiriniManager.AddReconciler(r)
+			Expect(len(eiriniManager.ListReconcilers())).To(Equal(2))
+		})
+
+	})
+
 })

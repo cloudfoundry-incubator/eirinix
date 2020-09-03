@@ -319,6 +319,34 @@ var _ = Describe("EiriniX", func() {
 			})
 		})
 	})
+
+	Context("reconcilers", func() {
+		var app *catalog.EiriniApp
+
+		JustBeforeEach(func() {
+			var err error
+			app, err = cat.StartEiriniApp()
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(app.IsRunning, time.Duration(60*time.Second), time.Duration(5*time.Second)).Should(BeTrue())
+		})
+
+		When("there is a simple extension running in the default namespace", func() {
+			BeforeEach(func() {
+				Expect(cat.RegisterEiriniXService()).To(Succeed())
+
+				mgr.AddReconciler(cat.SimpleReconciler())
+				go mgr.Start()
+
+				EventuallyExtensionShouldBeRegistered()
+			})
+
+			It("adds the annotation", func() {
+				Expect(app.Sync()).To(Succeed())
+				Expect(app.Pod.Metadata.Annotations).To(ContainElement("yes"))
+				Expect(app.Pod.Metadata.Annotations["touched"]).To(Equal("yes"))
+			})
+		})
+	})
 })
 
 func createNamespace(name string) {

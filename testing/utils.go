@@ -43,9 +43,14 @@ type PodStatus struct {
 type PodSpec struct {
 	Containers []Container `json:"containers"`
 }
+
+type ObjectMeta struct {
+	Annotations map[string]string `json:"annotations"`
+}
 type Pod struct {
-	Spec      PodSpec   `json:"spec"`
-	PodStatus PodStatus `json:"status"`
+	Metadata  ObjectMeta `json:"metadata"`
+	Spec      PodSpec    `json:"spec"`
+	PodStatus PodStatus  `json:"status"`
 }
 
 func (p *Pod) IsRunning() bool {
