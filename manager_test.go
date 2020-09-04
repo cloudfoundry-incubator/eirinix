@@ -358,4 +358,32 @@ var _ = Describe("Extension Manager", func() {
 
 	})
 
+	Context("Registering different Extensions types from the same API", func() {
+		r := eirinixcatalog.SimpleReconciler()
+		w := eirinixcatalog.SimpleWatcher()
+		e := eirinixcatalog.SimpleExtension()
+		foo := struct{ Bar string }{}
+
+		BeforeEach(func() {
+			r = eirinixcatalog.SimpleReconciler()
+			w = eirinixcatalog.SimpleWatcher()
+			e = eirinixcatalog.SimpleExtension()
+			foo = struct{ Bar string }{}
+		})
+
+		It("Registers correctly with AddExtension", func() {
+			err := eiriniManager.AddExtension(e)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(eiriniManager.ListExtensions())).To(Equal(1))
+			err = eiriniManager.AddExtension(r)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(eiriniManager.ListReconcilers())).To(Equal(1))
+			err = eiriniManager.AddExtension(w)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(eiriniManager.ListWatchers())).To(Equal(1))
+
+			err = eiriniManager.AddExtension(foo)
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })

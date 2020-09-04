@@ -204,9 +204,20 @@ func NewManager(opts ManagerOptions) Manager {
 	return &DefaultExtensionManager{Options: opts, Logger: opts.Logger, stopChannel: make(chan struct{})}
 }
 
-// AddExtension adds an Erini extension to the manager
-func (m *DefaultExtensionManager) AddExtension(e Extension) {
-	m.Extensions = append(m.Extensions, e)
+// AddExtension adds an Eirini extension to the manager.
+// It accepts Eirinix.Watcher, Eirinix.Reconciler and Eirinix.Extension types.
+func (m *DefaultExtensionManager) AddExtension(v interface{}) error {
+	switch v.(type) {
+	case Extension:
+		m.Extensions = append(m.Extensions, v.(Extension))
+	case Watcher:
+		m.AddWatcher(v.(Watcher))
+	case Reconciler:
+		m.AddReconciler(v.(Reconciler))
+	default:
+		return errors.New("Invalid extension type")
+	}
+	return nil
 }
 
 // ListExtensions returns the list of the Extensions added to the Manager
@@ -547,6 +558,10 @@ func (m *DefaultExtensionManager) Watch() error {
 // Start starts the Manager infinite loop, and returns an error on failure
 func (m *DefaultExtensionManager) Start() error {
 	defer m.Logger.Sync()
+
+	if len(m.Watchers) >= 0 {
+		go m.Watch()
+	}
 
 	if err := m.RegisterExtensions(); err != nil {
 		return err

@@ -81,7 +81,7 @@ type Manager interface {
 	// AddExtension adds an Extension to the manager
 	//
 	// The manager later on, will register the Extension when Start() is being called.
-	AddExtension(e Extension)
+	AddExtension(v interface{}) error
 
 	// AddReconciler adds a Reconciler Extension to the manager
 	//

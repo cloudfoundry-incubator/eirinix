@@ -33,6 +33,12 @@ func (e *EditEnvExtension) Handle(ctx context.Context, eiriniManager eirinix.Man
 	podCopy := pod.DeepCopy()
 	for i := range podCopy.Spec.Containers {
 		c := &podCopy.Spec.Containers[i]
+		for _, e := range c.Env {
+			if e.Name == "STICKY_MESSAGE" {
+				// was already patched
+				return eiriniManager.PatchFromPod(req, podCopy)
+			}
+		}
 		c.Env = append(c.Env, corev1.EnvVar{Name: "STICKY_MESSAGE", Value: "Eirinix is awesome!"})
 	}
 	return eiriniManager.PatchFromPod(req, podCopy)

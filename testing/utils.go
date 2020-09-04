@@ -33,8 +33,9 @@ type ContainerEnv struct {
 	Value string `json:"value"`
 }
 type Container struct {
-	Name string         `json:"name"`
-	Envs []ContainerEnv `json:"env"`
+	Name  string         `json:"name"`
+	Image string         `json:"image"`
+	Envs  []ContainerEnv `json:"env"`
 }
 
 type PodStatus struct {
