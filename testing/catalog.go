@@ -42,6 +42,12 @@ func (c *Catalog) SimpleExtension() eirinix.Extension {
 		parentExtension{Name: "test"}}
 }
 
+// SimpleReconciler it's returning a dummy Eirini reconciler extension
+// which adds the annotation "touched": "yes" to all created pods.
+func (c *Catalog) SimpleReconciler() eirinix.Reconciler {
+	return &testReconciler{}
+}
+
 // SimpleManager returns a dummy Extensions manager
 func (c *Catalog) SimpleManager() eirinix.Manager {
 	return eirinix.NewManager(

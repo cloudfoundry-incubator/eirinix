@@ -182,18 +182,6 @@ var _ = Describe("EiriniX", func() {
 			watcher    extension.Watcher
 		)
 
-		eventuallyReceivesEvent := func(evType watch.EventType, appName string) {
-			extension, _ := watcher.(*catalog.SimpleWatcherWithChannel)
-
-			ev := &watch.Event{}
-			EventuallyWithOffset(1, extension.Received, "5s").Should(Receive(ev))
-			ExpectWithOffset(1, ev.Type).To(Equal(evType))
-
-			pod, ok := ev.Object.(*corev1.Pod)
-			ExpectWithOffset(1, ok).To(BeTrue())
-			ExpectWithOffset(1, pod.GetName()).To(Equal(appName))
-		}
-
 		BeforeEach(func() {
 			ExtensionShouldBeUnregistered()
 
@@ -220,9 +208,9 @@ var _ = Describe("EiriniX", func() {
 
 				Expect(app.Delete()).To(Succeed())
 
-				eventuallyReceivesEvent(watch.Added, app.Name)
-				eventuallyReceivesEvent(watch.Modified, app.Name)
-				eventuallyReceivesEvent(watch.Modified, app.Name)
+				EventuallyReceivesEvent(watcher, watch.Added, app.Name)
+				EventuallyReceivesEvent(watcher, watch.Modified, app.Name)
+				EventuallyReceivesEvent(watcher, watch.Modified, app.Name)
 			})
 		})
 
@@ -249,9 +237,9 @@ var _ = Describe("EiriniX", func() {
 
 				Expect(app.Delete()).To(Succeed())
 
-				eventuallyReceivesEvent(watch.Added, app.Name)
-				eventuallyReceivesEvent(watch.Modified, app.Name)
-				eventuallyReceivesEvent(watch.Modified, app.Name)
+				EventuallyReceivesEvent(watcher, watch.Added, app.Name)
+				EventuallyReceivesEvent(watcher, watch.Modified, app.Name)
+				EventuallyReceivesEvent(watcher, watch.Modified, app.Name)
 			})
 		})
 
@@ -288,9 +276,9 @@ var _ = Describe("EiriniX", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(standardapp.IsRunning, time.Duration(60*time.Second), time.Duration(5*time.Second)).Should(BeTrue())
 
-				eventuallyReceivesEvent(watch.Added, standardapp.Name)
-				eventuallyReceivesEvent(watch.Modified, standardapp.Name)
-				eventuallyReceivesEvent(watch.Modified, standardapp.Name)
+				EventuallyReceivesEvent(watcher, watch.Added, standardapp.Name)
+				EventuallyReceivesEvent(watcher, watch.Modified, standardapp.Name)
+				EventuallyReceivesEvent(watcher, watch.Modified, standardapp.Name)
 			})
 
 			It("cannot see Eirini pods in other namespaces when namespace is set", func() {
@@ -312,10 +300,92 @@ var _ = Describe("EiriniX", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Eventually(app.IsRunning, time.Duration(60*time.Second), time.Duration(5*time.Second)).Should(BeTrue())
 
-					eventuallyReceivesEvent(watch.Added, app.Name)
-					eventuallyReceivesEvent(watch.Modified, app.Name)
-					eventuallyReceivesEvent(watch.Modified, app.Name)
+					EventuallyReceivesEvent(watcher, watch.Added, app.Name)
+					EventuallyReceivesEvent(watcher, watch.Modified, app.Name)
+					EventuallyReceivesEvent(watcher, watch.Modified, app.Name)
 				})
+			})
+		})
+	})
+
+	Context("reconcilers", func() {
+		var app *catalog.EiriniApp
+
+		JustBeforeEach(func() {
+			var err error
+			app, err = cat.StartEiriniApp()
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(app.IsRunning, time.Duration(60*time.Second), time.Duration(5*time.Second)).Should(BeTrue())
+		})
+
+		When("there is a simple extension running in the default namespace", func() {
+			BeforeEach(func() {
+				Expect(cat.RegisterEiriniXService()).To(Succeed())
+
+				mgr.AddReconciler(cat.SimpleReconciler())
+				go mgr.Start()
+
+				EventuallyExtensionShouldBeRegistered()
+			})
+
+			It("adds the annotation", func() {
+				Expect(app.Sync()).To(Succeed())
+				Expect(app.Pod.Metadata.Annotations).To(ContainElement("yes"))
+				Expect(app.Pod.Metadata.Annotations["touched"]).To(Equal("yes"))
+			})
+		})
+	})
+
+	Context("multiple extension types", func() {
+		var (
+			app *catalog.EiriniApp
+
+			resultChan chan watch.Event
+			watcher    extension.Watcher
+		)
+
+		JustBeforeEach(func() {
+			var err error
+			app, err = cat.StartEiriniApp()
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(app.IsRunning, time.Duration(60*time.Second), time.Duration(5*time.Second)).Should(BeTrue())
+		})
+
+		When("there are extension, watcher and reconcilers started from the same process", func() {
+			BeforeEach(func() {
+				resultChan = make(chan watch.Event, 3)
+				watcher = cat.SimpleWatcherWithChannel(resultChan)
+
+				Expect(cat.RegisterEiriniXService()).To(Succeed())
+
+				mgr.AddExtension(&catalog.EditImageReconciler{})
+				mgr.AddExtension(watcher)
+				mgr.AddExtension(ext)
+
+				go mgr.Start()
+
+				EventuallyExtensionShouldBeRegistered()
+			})
+
+			It("adds the annotation", func() {
+				Expect(app.Sync()).To(Succeed())
+				Eventually(func() string {
+					app.Sync()
+					return app.Pod.Spec.Containers[0].Image
+				}, "60s").Should(Equal("opensuse/leap"))
+			})
+
+			It("still adds the env var to the original app", func() {
+				AppShouldHaveSingleContainerWithEnv(app, []catalog.ContainerEnv{
+					{Name: "STICKY_MESSAGE", Value: "Eirinix is awesome!"},
+					{Name: "FAKE_APP", Value: "fake content"},
+				})
+			})
+
+			It("processes events", func() {
+				EventuallyReceivesEvent(watcher, watch.Added, app.Name)
+				EventuallyReceivesEvent(watcher, watch.Modified, app.Name)
+				EventuallyReceivesEvent(watcher, watch.Modified, app.Name)
 			})
 		})
 	})
@@ -353,4 +423,16 @@ func AppShouldHaveSingleContainerWithEnv(app *catalog.EiriniApp, contents []cata
 	ExpectWithOffset(1, app.Sync()).To(Succeed())
 	ExpectWithOffset(1, app.Pod.Spec.Containers).To(HaveLen(1))
 	ExpectWithOffset(1, app.Pod.Spec.Containers[0].Envs).To(ConsistOf(contents))
+}
+
+func EventuallyReceivesEvent(watcher extension.Watcher, evType watch.EventType, appName string) {
+	extension, _ := watcher.(*catalog.SimpleWatcherWithChannel)
+
+	ev := &watch.Event{}
+	EventuallyWithOffset(1, extension.Received, "5s").Should(Receive(ev))
+	ExpectWithOffset(1, ev.Type).To(Equal(evType))
+
+	pod, ok := ev.Object.(*corev1.Pod)
+	ExpectWithOffset(1, ok).To(BeTrue())
+	ExpectWithOffset(1, pod.GetName()).To(Equal(appName))
 }
