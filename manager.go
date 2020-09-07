@@ -347,11 +347,6 @@ func (m *DefaultExtensionManager) kubeSetup() error {
 func (m *DefaultExtensionManager) GenWebHookServer() {
 
 	//disableConfigInstaller := true
-	if m.GetManagerOptions().Context == nil {
-		m.Context = ctxlog.NewManagerContext(m.Logger)
-	} else {
-		m.Context = *m.GetManagerOptions().Context
-	}
 
 	m.WebhookConfig = NewWebhookConfig(
 		m.KubeManager.GetClient(),
@@ -566,6 +561,12 @@ func (m *DefaultExtensionManager) Watch() error {
 // Start starts the Manager infinite loop, and returns an error on failure
 func (m *DefaultExtensionManager) Start() error {
 	defer m.Logger.Sync()
+
+	if m.GetManagerOptions().Context == nil {
+		m.Context = ctxlog.NewManagerContext(m.Logger)
+	} else {
+		m.Context = *m.GetManagerOptions().Context
+	}
 
 	if len(m.Watchers) >= 0 {
 		go m.Watch()
