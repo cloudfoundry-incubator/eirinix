@@ -106,6 +106,9 @@ type ManagerOptions struct {
 	// Port is the listening port
 	Port int32
 
+	// Context is the context to be used for Kube requests. Leave it empty for automatic generation
+	Context *context.Context
+
 	// KubeConfig is the kubeconfig path. Optional, omit for in-cluster connection
 	KubeConfig string
 
@@ -344,7 +347,12 @@ func (m *DefaultExtensionManager) kubeSetup() error {
 func (m *DefaultExtensionManager) GenWebHookServer() {
 
 	//disableConfigInstaller := true
-	m.Context = ctxlog.NewManagerContext(m.Logger)
+	if m.GetManagerOptions().Context == nil {
+		m.Context = ctxlog.NewManagerContext(m.Logger)
+	} else {
+		m.Context = *m.GetManagerOptions().Context
+	}
+
 	m.WebhookConfig = NewWebhookConfig(
 		m.KubeManager.GetClient(),
 		&Config{
