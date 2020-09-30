@@ -5,10 +5,8 @@ set -e
 
 GO111MODULE=off go get -u github.com/maxbrunsfeld/counterfeiter
 
-counterfeiter -o testing/fakes/manager.go vendor/sigs.k8s.io/controller-runtime/pkg/manager Manager
-counterfeiter -o testing/fakes/client.go vendor/sigs.k8s.io/controller-runtime/pkg/client Client
-counterfeiter -o testing/fakes/corev1client.go vendor/k8s.io/client-go/kubernetes/typed/core/v1 CoreV1Interface
-counterfeiter -o testing/fakes/podinterface.go vendor/k8s.io/client-go/kubernetes/typed/core/v1 PodInterface
-counterfeiter -o testing/fakes/watch.go vendor/k8s.io/apimachinery/pkg/watch Interface
-
-
+counterfeiter -o testing/fakes/manager.go sigs.k8s.io/controller-runtime/pkg/manager.Manager
+counterfeiter -o testing/fakes/client.go sigs.k8s.io/controller-runtime/pkg/client.Client
+counterfeiter -o testing/fakes/corev1client.go k8s.io/client-go/kubernetes/typed/core/v1.CoreV1Interface
+counterfeiter -o testing/fakes/podinterface.go k8s.io/client-go/kubernetes/typed/core/v1.PodInterface
+counterfeiter -o testing/fakes/watch.go k8s.io/apimachinery/pkg/watch.Interface
