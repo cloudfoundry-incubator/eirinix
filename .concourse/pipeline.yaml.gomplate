@@ -105,8 +105,8 @@
 {{ end }}
 
 groups:
-- name: chart
-  jobs: [ package-base, chart ]
+- name: package-base
+  jobs: [ package-base ]
 - name: logging
   jobs: [ loggregator-bridge ]
 - name: persi
@@ -123,14 +123,6 @@ resources:
     branch: master
     uri: https://github.com/{{ index $.repos . }}
 {{ end }}
-- name: github-release.chart
-  type: github-release
-  source:
-    owner: {{ $.repos.org }}
-    repository: eirinix-helm-release
-    access_token: {{ $.repos.token }}
-    release: false
-    pre_release: true
 
 # Docker image outputs
 {{ range $images }}
@@ -180,7 +172,7 @@ jobs:
 {{ template "build-image" (dict "repo" "eirini-ssh" "image" "ssh" | merge $) }}
 {{ template "build-image" (dict "repo" "eirinix-helm-release" "image" "ssh-proxy-setup" "docker-path" "images/ssh-proxy-setup") | merge $ }}
 
-# group chart
+# group package-base
 - name: package-base
   plan:
   - get: docker.base
@@ -210,61 +202,3 @@ jobs:
   - put: docker.package-base
     params:
       build: dockerfile
-- name: chart
-  plan:
-  - in_parallel:
-    {{- range $images }}
-    - get: s3.{{ . }}-version
-      trigger: {{ $.repos.trigger }}
-      passed: [ {{ . }} ]
-    {{- end }}
-    - get: docker.package-base
-    - get: git.eirinix-helm-release
-      trigger: {{ $.repos.trigger }}
-  - task: build
-    config:
-      platform: linux
-      inputs:
-      - name: git.eirinix-helm-release
-      {{- range $images }}
-      - name: s3.{{ . }}-version
-      {{- end }}
-      outputs:
-      - name: output
-      run:
-        dir: git.eirinix-helm-release
-        path: bin/package
-    image: docker.package-base
-    params:
-      VERSION_FILE: ../output/version.txt
-      COMMIT_HASH_FILE: ../output/commit.txt
-      OUTPUT_DIR: ../output/
-      OVERRIDES: |
-        {{- range $images }}
-        {{- if . | strings.HasSuffix "-setup" | not }}
-        {{ . }}:
-          image:
-            repository: {{ $.docker.repository }}
-            tag: <%= File.read('../s3.{{ . }}-version/version') %>
-          {{- if printf "%s-setup" . | has $images }}
-          setup-image:
-            repository: {{ $.docker.repository }}
-            tag: <%= File.read('../s3.{{ . }}-setup-version/version') %>
-          {{- end }}
-        {{- end }}
-        {{- end }}
-        ssh-proxy:
-          image:
-            repository: {{ $.docker.repository }}
-            tag: <%= File.read('../s3.ssh-version/version') %>
-          setup-image:
-            repository: {{ $.docker.repository }}
-            tag: <%= File.read('../s3.ssh-proxy-setup-version/version') %>
-  - put: github-release.chart
-    params:
-      name: output/version.txt
-      tag: output/version.txt
-      tag_prefix: v
-      commitish: output/commit.txt
-      globs: [ output/eirini-extensions-*.tgz ]
-      body: output/body.txt
