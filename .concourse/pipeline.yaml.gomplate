@@ -1,0 +1,204 @@
+
+{{- /* list of repositories and output images */ -}}
+
+{{- $repos := slice "eirini-loggregator-bridge" "eirini-persi" "eirini-persi-broker" "eirini-ssh" "eirinix-helm-release" }}
+{{- $images := slice "loggregator-bridge" "persi" "persi-broker" "ssh" "persi-broker-setup" "ssh-proxy-setup" }}
+
+{{- /* configure default values */ -}}
+
+{{- /* $.docker */ -}}
+{{- $ = dict | dict "docker" | merge $ -}}
+{{- /* .docker.repository */ -}}
+{{- $ = merge (index $.docker "repository" | default "splatform" | dict "repository" | dict "docker") $ -}}
+{{- /* .docker.username */ -}}
+{{- $ = merge (index $.docker "username" | default "((docker-username))" | dict "username" | dict "docker") $ -}}
+{{- /* .docker.password */ -}}
+{{- $ = merge (index $.docker "password" | default "((docker-password))" | dict "password" | dict "docker") $ -}}
+{{- /* .git */ -}}
+{{- $ = dict | dict "git" | merge $ -}}
+{{- /* .git.user */ -}}
+{{- $ = merge (index $.git "user" | default "SUSE CFCIBot" | dict "user" | dict "git") $ -}}
+{{- /* .git.email */ -}}
+{{- $ = merge (index $.git "email" | default "cf-ci-bot@suse.de" | dict "email" | dict "git") $ -}}
+{{- /* .repos */ -}}
+{{- $ = dict | dict "repos" | merge $ -}}
+{{- /* .repos.trigger */ -}}
+{{- $ = merge (index $.repos "trigger" | default true | dict "trigger" | dict "repos") $ -}}
+{{- /* .repos.org */ -}}
+{{- $ = merge (index $.repos "org" | default "SUSE" | dict "org" | dict "repos") $ -}}
+{{- /* .repos.token */ -}}
+{{- $ = merge (index $.repos "token" | default "((github-access-token))" | dict "token" | dict "repos") $ -}}
+{{- /* .repos.key */ -}}
+{{- $ = merge (index $.repos "key" | default "((github-private-key))" | dict "key" | dict "repos") $ -}}
+{{- /* .repos.<repo> */ -}}
+{{- range $repos -}}
+{{- $ = merge (index $.repos . | default (printf "%s/%s" $.repos.org .) | dict . | dict "repos") $ -}}
+{{- end -}}
+{{- /* $.s3 */ -}}
+{{- $ = dict | dict "s3" | merge $ -}}
+{{- /* $.s3.bucket */ -}}
+{{- $ = merge (index $.s3 "bucket" | default "eirini-suse" | dict "bucket" | dict "s3") $ -}}
+{{- /* $.s3.prefix */ -}}
+{{- $ = merge (index $.s3 "prefix" | default "" | dict "prefix" | dict "s3") $ -}}
+{{- /* $.s3.region_name */ -}}
+{{- $ = merge (index $.s3 "region_name" | default "us-east-1" | dict "region_name" | dict "s3") $ -}}
+{{- /* $.s3.access_key_id */ -}}
+{{- $ = merge (index $.s3 "access_key_id" | default "((aws-access-key))" | dict "access_key_id" | dict "s3") $ -}}
+{{- /* $.s3.secret_access_key */ -}}
+{{- $ = merge (index $.s3 "secret_access_key" | default "((aws-secret-key))" | dict "secret_access_key" | dict "s3") $ -}}
+
+{{- /* This template builds a go binary from source */ -}}
+{{- /* Requires `.repo`, `.image`, and `.subdir` keys */ -}}
+{{- /* Optionally, `.docker-path` can be used to locate the Dockerfile. */ -}}
+{{ define "build-image" }}
+- name: {{ $.image }}
+  plan:
+  - get: git.{{ $.repo }}
+    trigger: {{ $.repos.trigger }}
+    version: every
+  - task: get-version
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source: { repository: golang }
+      inputs:
+      - name: git.{{ $.repo }}
+        path: src
+      outputs:
+      - name: tag
+      params:
+        GIT_AUTHOR_NAME: {{ $.git.user }}
+        GIT_AUTHOR_EMAIL: {{ $.git.email }}
+      run:
+        path: /bin/sh
+        args:
+        - -c
+        - >
+          set -o errexit -o nounset ;
+          git config --global user.name  "$GIT_AUTHOR_NAME" ;
+          git config --global user.email "$GIT_AUTHOR_EMAIL" ;
+          (
+            cd src ;
+            if [ -r bin/include/versioning ] ; then
+              . bin/include/versioning ;
+              echo $VERSION_TAG ;
+            else
+              git describe --tags --long --exclude '*+g*' || \
+                printf "v0.0.0-g%s" "$(git describe --always)"
+            fi
+          ) > tag/tag.txt ;
+          cp tag/tag.txt "tag/image-{{ $.image }}-tag-$(cat tag/tag.txt).txt"
+  - in_parallel:
+    - put: docker.{{ $.image }}
+      params:
+        build: git.{{ $.repo }}/{{ index . "docker-path" | default "" }}
+        build_args:
+          USER: {{ $.git.user }}
+          EMAIL: {{ $.git.email }}
+          # BASE_IMAGE: scratch # FIXME: images are missing /tmp folder, which makes extensions to crash
+        tag_file: tag/tag.txt
+        tag_as_latest: true
+    - put: s3.{{ $.image }}-version
+      params:
+        file: tag/image-{{ $.image }}-tag-*.txt
+{{ end }}
+
+groups:
+- name: package-base
+  jobs: [ package-base ]
+- name: logging
+  jobs: [ loggregator-bridge ]
+- name: persi
+  jobs: [ persi, persi-broker, persi-broker-setup ]
+- name: ssh
+  jobs: [ ssh, ssh-proxy-setup ]
+
+resources:
+# source GitHub repositories
+{{ range $repos }}
+- name: git.{{ . }}
+  type: git
+  source:
+    branch: master
+    uri: https://github.com/{{ index $.repos . }}
+{{ end }}
+
+# Docker image outputs
+{{ range $images }}
+- name: docker.{{ . }}
+  type: docker-image
+  source:
+    repository: {{ $.docker.repository }}/eirinix-{{ . }}
+    username:   {{ $.docker.username }}
+    password:   {{ $.docker.password }}
+{{ end }}
+- name: docker.base
+  type: docker-image
+  source:
+    repository: opensuse/leap
+    tag:        15.2
+- name: docker.package-base
+  type: docker-image
+  source:
+    repository: {{ $.docker.repository }}/eirinix-package-base
+    username:   {{ $.docker.username }}
+    password:   {{ $.docker.password }}
+
+# S3 resources
+{{ range $images }}
+- name: s3.{{ . }}-version
+  type: s3
+  source:
+    bucket: {{ $.s3.bucket }}
+    {{- range keys $.s3 }}
+    {{- if has (slice "bucket" "prefix") . | not }}
+    {{ . }}: {{ index $.s3 . }}
+    {{- end }}
+    {{- end }}
+    regexp: {{ $.s3.prefix | default ""  }}image-{{ . }}-tag-(.*).txt
+{{ end }}
+
+jobs:
+# group logging
+{{ template "build-image" (dict "repo" "eirini-loggregator-bridge" "image" "loggregator-bridge" | merge $) }}
+
+# group persi
+{{ template "build-image" (dict "repo" "eirini-persi" "image" "persi" | merge $) }}
+{{ template "build-image" (dict "repo" "eirini-persi-broker" "image" "persi-broker" | merge $) }}
+{{ template "build-image" (dict "repo" "eirinix-helm-release" "image" "persi-broker-setup" "docker-path" "images/persi-broker-setup") | merge $ }}
+
+# group ssh
+{{ template "build-image" (dict "repo" "eirini-ssh" "image" "ssh" | merge $) }}
+{{ template "build-image" (dict "repo" "eirinix-helm-release" "image" "ssh-proxy-setup" "docker-path" "images/ssh-proxy-setup") | merge $ }}
+
+# group package-base
+- name: package-base
+  plan:
+  - get: docker.base
+    trigger: {{ $.repos.trigger }}
+  - task: dockerfile
+    config:
+      platform: linux
+      outputs:
+      - name: dockerfile
+      run:
+        path: /bin/sh
+        args:
+        - -c
+        - echo "${CONTENTS}" > dockerfile/Dockerfile
+      params:
+        CONTENTS: |
+          FROM opensuse/leap:15.2
+          # coreutils required for sha256sum / date
+          RUN true \
+            && zypper --non-interactive install \
+              coreutils \
+              git-core \
+              helm \
+              ruby \
+            && zypper --non-interactive clean
+    image: docker.base
+  - put: docker.package-base
+    params:
+      build: dockerfile

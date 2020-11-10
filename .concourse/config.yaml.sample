@@ -1,0 +1,34 @@
+# All values are optional; if not provided, hard-coded production values in the
+# pipeline are used.
+
+docker:
+  repository: ~ # splatform
+  username: ((docker-username))
+  password: ((docker-password))
+
+git:
+  user: ~  # SUSE CFCIBot
+  email: ~ # cf-ci-bot@suse.de
+
+repos:
+  trigger: false                   # whether to automatically trigger builds
+  org: ~                           # SUSE
+  token:                           ((github-access-token))
+  key:                             ((github-private-key))
+  # Per-repo overrides are also possible; these include the org.
+  eirini-loggregator-bridge: ~     # SUSE/eirini-loggregator-bridge
+  eirini-persi: ~                  # SUSE/eirini-persi
+  eirini-persi-broker: ~           # SUSE/eirini-persi-broker
+  eirini-ssh: ~                    # SUSE/eirini-ssh
+  eirinix-helm-release: ~          # SUSE/eirinix-helm-release
+
+s3:
+  bucket:            eirini-suse
+  prefix:            ""
+  access_key_id:     ((aws-access-key))
+  secret_access_key: ((aws-secret-key))
+  session_token:     ~
+  region_name:       us-east-1
+  private:           false
+  endpoint:          ~
+  disable_ssl:       false
