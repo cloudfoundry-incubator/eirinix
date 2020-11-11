@@ -9,11 +9,11 @@
 {{- /* $.docker */ -}}
 {{- $ = dict | dict "docker" | merge $ -}}
 {{- /* .docker.repository */ -}}
-{{- $ = merge (index $.docker "repository" | default "splatform" | dict "repository" | dict "docker") $ -}}
+{{- $ = merge (index $.docker "repository" | default "ghcr.io/cloudfoundry-incubator" | dict "repository" | dict "docker") $ -}}
 {{- /* .docker.username */ -}}
-{{- $ = merge (index $.docker "username" | default "((docker-username))" | dict "username" | dict "docker") $ -}}
+{{- $ = merge (index $.docker "username" | default "((ghcr-user))" | dict "username" | dict "docker") $ -}}
 {{- /* .docker.password */ -}}
-{{- $ = merge (index $.docker "password" | default "((docker-password))" | dict "password" | dict "docker") $ -}}
+{{- $ = merge (index $.docker "password" | default "((ghcr-password))" | dict "password" | dict "docker") $ -}}
 {{- /* .git */ -}}
 {{- $ = dict | dict "git" | merge $ -}}
 {{- /* .git.user */ -}}
