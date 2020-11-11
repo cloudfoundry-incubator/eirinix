@@ -2,9 +2,9 @@
 # pipeline are used.
 
 docker:
-  repository: ~ # splatform
-  username: ((docker-username))
-  password: ((docker-password))
+  repository: ~ # ghcr.io/cloudfoundry-incubator
+  username: ((ghcr-user))
+  password: ((ghcr-password))
 
 git:
   user: ~  # SUSE CFCIBot
