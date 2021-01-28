@@ -306,6 +306,28 @@ var _ = Describe("EiriniX", func() {
 				})
 			})
 		})
+
+		When("watching in a single namespace", func() {
+			var testns string
+
+			BeforeEach(func() {
+				testns = "watchertest"
+				createNamespace(testns)
+
+				mgr = cat.IntegrationManagerFiltered(false, testns)
+				go mgr.Start()
+			})
+
+			AfterEach(func() {
+				deleteNamespace(testns)
+			})
+
+			It("maps the operator to that namespace via a label in the watched namespace", func() {
+				EventuallyWithOffset(1, func() (string, error) {
+					return catalog.Kubectl([]string{}, "get", "namespace", testns, "-o", "jsonpath='{.metadata.labels.eirini-x-ns}'")
+				}, "1m").Should(ContainSubstring(testns))
+			})
+		})
 	})
 
 	Context("reconcilers", func() {
